@@ -5,24 +5,24 @@
 
 namespace amber {
 
-class linear_allocator {
+class stack_allocator {
 public:
-    linear_allocator() = delete;
+    stack_allocator() = delete;
 
-    linear_allocator(const linear_allocator&) = delete;
+    stack_allocator(const stack_allocator&) = delete;
 
-    linear_allocator(linear_allocator&&) noexcept;
+    stack_allocator(stack_allocator&&) noexcept;
 
     explicit
-    linear_allocator(std::size_t size);
+    stack_allocator(std::size_t size);
 
-    linear_allocator(std::size_t size, std::size_t align);
+    stack_allocator(std::size_t size, std::size_t align);
 
-    linear_allocator& operator=(const linear_allocator&) = delete;
+    stack_allocator& operator=(const stack_allocator&) = delete;
 
-    linear_allocator& operator=(linear_allocator&&) noexcept;
+    stack_allocator& operator=(stack_allocator&&) noexcept;
 
-    ~linear_allocator() noexcept;
+    ~stack_allocator() noexcept;
 
     void* allocate(std::size_t size, std::size_t align);
 
@@ -44,6 +44,16 @@ public:
     template<typename T>
     T* try_allocate() noexcept;
 
+    void free(void* ptr);
+
+    template<typename T>
+    void free(T* ptr);
+
+    bool try_free(void* ptr) noexcept;
+
+    template<typename T>
+    bool try_free(T* ptr) noexcept;
+
     void reset() noexcept;
 
 private:
@@ -52,8 +62,6 @@ private:
     std::size_t buffer_offset;
 };
 
-static_assert(SimpleMemoryAllocator<linear_allocator>);
+static_assert(MemoryAllocator<stack_allocator>):
 
 }
-
-#include <amber/linear_allocator.inl>

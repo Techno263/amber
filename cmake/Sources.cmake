@@ -1,0 +1,21 @@
+set(AMBER_SOURCES
+    except/alignment_error.hpp
+    except/invalid_allocate_error.hpp
+    except/out_of_bounds_error.hpp
+    except/out_of_capacity_error.hpp
+    except.hpp
+    linear_allocator.cpp
+    linear_allocator.hpp
+    linear_allocator.inl
+    pool_allocator.cpp
+    pool_allocator.hpp
+    pool_allocator.inl
+    util.hpp
+    util.inl
+)
+
+prepend_paths(
+    "${AMBER_SOURCES}"
+    "src/amber"
+    "AMBER_SOURCES"
+)

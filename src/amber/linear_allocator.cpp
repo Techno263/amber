@@ -1,14 +1,16 @@
 #include <amber/linear_allocator.hpp>
 #include <cstdlib>
-#include <stdexcept>
+#include <new>
 #include <utility>
+#include <amber/except.hpp>
+#include <amber/util.hpp>
 
 namespace amber {
 
 linear_allocator::linear_allocator(linear_allocator&& other) noexcept
-    : buffer_size(std::exchange(other.buffer_size, 0)),
-    buffer_offset(std::exchange(other.buffer_offset, 0)),
-    buffer(std::exchange(other.buffer, nullptr))
+    : buffer(std::exchange(other.buffer, nullptr)),
+    buffer_size(std::exchange(other.buffer_size, 0)),
+    buffer_offset(std::exchange(other.buffer_offset, 0))
 {}
 
 linear_allocator::linear_allocator(std::size_t size)
@@ -57,8 +59,8 @@ linear_allocator::~linear_allocator() noexcept
 
 void* linear_allocator::allocate(std::size_t size, std::size_t align)
 {
-    if (align <= 0 || (align & (align - 1)) != 0) {
-        throw std::runtime_error("align must be a positive power of two");
+    if (!is_power_of_two(align)) {
+        throw alignment_error("align must be a power of two");
     }
     std::byte* offset_addr = buffer + buffer_offset;
     std::uintptr_t align_padding = -reinterpret_cast<std::uintptr_t>(offset_addr) & (align - 1);
@@ -82,7 +84,7 @@ void* linear_allocator::allocate(std::size size)
 
 void* linear_allocator::try_allocate(std::size_t size, std::size_t align) noexcept
 {
-    if (align <= 0 || (align & (align - 1)) != 0) {
+    if (!is_power_of_two(align)) {
         return nullptr;
     }
     std::byte* offset_addr = buffer + buffer_offset;
