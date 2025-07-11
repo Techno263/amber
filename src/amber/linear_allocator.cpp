@@ -1,9 +1,11 @@
+#include <amber/except.hpp>
 #include <amber/linear_allocator.hpp>
+#include <amber/util.hpp>
+#include <bit>
+#include <cstdint>
 #include <cstdlib>
 #include <new>
 #include <utility>
-#include <amber/except.hpp>
-#include <amber/util.hpp>
 
 namespace amber {
 
@@ -42,7 +44,7 @@ linear_allocator& linear_allocator::operator=(linear_allocator&& other) noexcept
         }
         buffer = std::exchange(other.buffer, nullptr);
         buffer_size = std::exchange(other.buffer_size, 0);
-        buffer_offset = std::excahnge(other.buffer_offset, 0);
+        buffer_offset = std::exchange(other.buffer_offset, 0);
     }
     return *this;
 }
@@ -59,7 +61,7 @@ linear_allocator::~linear_allocator() noexcept
 
 void* linear_allocator::allocate(std::size_t size, std::size_t align)
 {
-    if (!is_power_of_two(align)) {
+    if (!std::has_single_bit(align)) {
         throw alignment_error("align must be a power of two");
     }
     std::byte* offset_addr = buffer + buffer_offset;
@@ -72,7 +74,7 @@ void* linear_allocator::allocate(std::size_t size, std::size_t align)
     return output;
 }
 
-void* linear_allocator::allocate(std::size size)
+void* linear_allocator::allocate(std::size_t size)
 {
     if (buffer_offset + size > buffer_size) {
         std::bad_alloc();
@@ -84,7 +86,7 @@ void* linear_allocator::allocate(std::size size)
 
 void* linear_allocator::try_allocate(std::size_t size, std::size_t align) noexcept
 {
-    if (!is_power_of_two(align)) {
+    if (!std::has_single_bit(align)) {
         return nullptr;
     }
     std::byte* offset_addr = buffer + buffer_offset;

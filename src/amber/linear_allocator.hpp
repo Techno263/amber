@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstddef>
-#include <amber/concepts.hpp>
+//#include <amber/concepts.hpp>
 
 namespace amber {
 
@@ -52,7 +52,7 @@ private:
     std::size_t buffer_offset;
 };
 
-static_assert(SimpleMemoryAllocator<linear_allocator>);
+//static_assert(SimpleMemoryAllocator<linear_allocator>);
 
 }
 

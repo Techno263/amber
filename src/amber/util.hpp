@@ -1,12 +1,8 @@
 #pragma once
 
-#include <type_trait>
+#include <type_traits>
 
 namespace amber {
-
-template<typename IntegerType>
-requires std::is_integral_v<IntegerType>
-constexpr bool is_power_of_two(IntegerType n) noexcept;
 
 template<typename IntegerType>
 requires std::is_integral_v<IntegerType>

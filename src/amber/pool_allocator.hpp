@@ -51,8 +51,8 @@ public:
     void reset() noexcept;
 
 private:
-    std::void* buffer;
-    std::void* free_head;
+    std::byte* buffer;
+    std::byte* free_head;
     std::size_t buffer_size;
     std::size_t entry_size;
     std::size_t entry_count;

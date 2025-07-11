@@ -1,7 +1,7 @@
+#include <amber/except.hpp>
 #include <memory>
 #include <utility>
 #include <new>
-#include <amber/except.hpp>
 
 namespace amber {
 
