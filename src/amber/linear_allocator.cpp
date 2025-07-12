@@ -64,14 +64,15 @@ void* linear_allocator::allocate(std::size_t size, std::size_t align)
     if (!std::has_single_bit(align)) {
         throw alignment_error("align must be a power of two");
     }
-    std::byte* offset_addr = buffer + buffer_offset;
-    std::uintptr_t align_padding = -reinterpret_cast<std::uintptr_t>(offset_addr) & (align - 1);
-    if (buffer_offset + align_padding + size > buffer_size) {
+    std::byte* offset_ptr = buffer + buffer_offset;
+    std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
+    std::uintptr_t aligned_addr = align_forward_no_check(offset_addr, static_cast<std::uintptr_t>(align));
+    if (aligned_addr + size > buffer_size) {
         throw std::bad_alloc();
     }
-    void* output = static_cast<void*>(offset_addr + align_padding);
-    buffer_offset += align_padding + size;
-    return output;
+    std::uintptr_t padding = aligned_addr - offset_addr;
+    buffer_offset += padding + size;
+    return reinterpret_cast<void*>(aligned_addr);
 }
 
 void* linear_allocator::allocate(std::size_t size)
@@ -89,14 +90,15 @@ void* linear_allocator::try_allocate(std::size_t size, std::size_t align) noexce
     if (!std::has_single_bit(align)) {
         return nullptr;
     }
-    std::byte* offset_addr = buffer + buffer_offset;
-    std::uintptr_t align_padding = -reinterpret_cast<std::uintptr_t>(offset_addr) & (align - 1);
-    if (buffer_offset + align_padding + size > buffer_size) {
+    std::byte* offset_ptr = buffer + buffer_offset;
+    std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
+    std::uintptr_t aligned_addr = align_forward_no_check(offset_addr, static_cast<std::uintptr_t>(align));
+    if (aligned_addr + size > buffer_size) {
         return nullptr;
     }
-    void* output = static_cast<void*>(offset_addr + align_padding);
-    buffer_offset += align_padding + size;
-    return output;
+    std::uintptr_t padding = aligned_addr - offset_addr;
+    buffer_offset += padding + size;
+    return reinterpret_cast<void*>(aligned_addr);
 }
 
 void* linear_allocator::try_allocate(std::size_t size) noexcept

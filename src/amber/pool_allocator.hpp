@@ -45,9 +45,9 @@ public:
     requires std::is_nothrow_destructible_v<T>
     bool try_free(T* ptr) noexcept;
 
-    void reset() noexcept;
-
 private:
+    void init_buffer() noexcept;
+
     std::byte* buffer;
     std::byte* free_head;
     std::size_t buffer_size;

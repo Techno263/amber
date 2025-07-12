@@ -28,21 +28,17 @@ public:
 
     void* allocate(std::size_t size);
 
-    template<typename T>
-    T* allocate(std::size_t count);
-
-    template<typename T>
-    T* allocate();
+    template<typename T, typename... Args>
+    requires std::is_trivially_destructible_v<T>
+    T* allocate(Args&&... args);
 
     void* try_allocate(std::size_t size, std::size_t align) noexcept;
 
     void* try_allocate(std::size_t size) noexcept;
 
-    template<typename T>
-    T* try_allocate(std::size_t count) noexcept;
-
-    template<typename T>
-    T* try_allocate() noexcept;
+    template<typename T, typename... Args>
+    requires std::is_trivially_destructible_v<T> && std::is_nothrow_constructible_v<T, Args...>
+    T* try_allocate(Args&&... args) noexcept;
 
     void reset() noexcept;
 

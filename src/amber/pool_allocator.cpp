@@ -3,6 +3,7 @@
 #include <amber/util.hpp>
 #include <bit>
 #include <cstring>
+#include <memory>
 #include <new>
 #include <stdexcept>
 #include <utility>
@@ -38,7 +39,7 @@ pool_allocator::pool_allocator(std::size_t entry_size, std::size_t entry_count)
     if (buffer == nullptr) {
         throw std::bad_alloc();
     }
-    reset();
+    init_buffer();
 }
 
 pool_allocator::pool_allocator(std::size_t entry_size, std::size_t entry_count, std::size_t entry_align)
@@ -48,6 +49,8 @@ pool_allocator::pool_allocator(std::size_t entry_size, std::size_t entry_count, 
     if (!std::has_single_bit(entry_align)) {
         throw alignment_error("align must be a power of two");
     }
+    // can use max hear signs both alignments are guaranteed to be powers of two, otherwise lcm should be used
+    entry_align = std::max(entry_align, alignof(pool_entry));
     if (entry_size < sizeof(pool_entry)) {
         entry_size = sizeof(pool_entry);
     }
@@ -58,7 +61,7 @@ pool_allocator::pool_allocator(std::size_t entry_size, std::size_t entry_count, 
     if (buffer == nullptr) {
         throw std::bad_alloc();
     }
-    reset();
+    init_buffer();
 }
 
 pool_allocator& pool_allocator::operator=(pool_allocator&& other) noexcept
@@ -93,7 +96,8 @@ void* pool_allocator::allocate()
     if (free_head == nullptr) {
         throw out_of_capacity_error();
     }
-    pool_entry* entry_ptr = std::launder(reinterpret_cast<pool_entry*>(free_head));
+    pool_entry* entry_ptr = reinterpret_cast<pool_entry*>(free_head);
+    entry_ptr = std::assume_aligned<alignof(pool_entry)>(entry_ptr);
     free_head = entry_ptr->next;
     std::memset(entry_ptr, 0, entry_size);
     return entry_ptr;
@@ -104,7 +108,8 @@ void* pool_allocator::try_allocate() noexcept
     if (free_head == nullptr) {
         return nullptr;
     }
-    pool_entry* entry_ptr = std::launder(reinterpret_cast<pool_entry*>(free_head));
+    pool_entry* entry_ptr = reinterpret_cast<pool_entry*>(free_head);
+    entry_ptr = std::assume_aligned<alignof(pool_entry)>(entry_ptr);
     free_head = entry_ptr->next;
     std::memset(entry_ptr, 0, entry_size);
     return entry_ptr;
@@ -118,7 +123,8 @@ void pool_allocator::free(void* ptr)
     if (ptr < buffer || ptr >= (buffer + buffer_size)) {
         throw out_of_bounds_error();
     }
-    pool_entry* entry_ptr = std::launder(static_cast<pool_entry*>(ptr));
+    pool_entry* entry_ptr = std::assume_aligned<alignof(pool_entry)>(static_cast<pool_entry*>(ptr));
+    entry_ptr = std::launder(std::construct_at(entry_ptr));
     entry_ptr->next = free_head;
     free_head = reinterpret_cast<std::byte*>(entry_ptr);
 }
@@ -131,17 +137,21 @@ bool pool_allocator::try_free(void* ptr) noexcept
     if (ptr < buffer || ptr >= (buffer + buffer_size)) {
         return false;
     }
-    pool_entry* entry_ptr = std::launder(static_cast<pool_entry*>(ptr));
+    pool_entry* entry_ptr = std::assume_aligned<alignof(pool_entry)>(static_cast<pool_entry*>(ptr));
+    entry_ptr = std::launder(std::construct_at(entry_ptr));
     entry_ptr->next = free_head;
     free_head = reinterpret_cast<std::byte*>(entry_ptr);
     return true;
 }
 
-void pool_allocator::reset() noexcept
+void pool_allocator::init_buffer() noexcept
 {
+    static_assert(std::is_nothrow_constructible_v<pool_entry>);
     free_head = nullptr;
     for (std::size_t i = 0; i < entry_count; ++i) {
-        pool_entry* entry_ptr = std::launder(reinterpret_cast<pool_entry*>(buffer + (i * entry_size)));
+        pool_entry* entry_ptr = reinterpret_cast<pool_entry*>(buffer + (i * entry_size));
+        entry_ptr = std::assume_aligned<alignof(pool_entry)>(entry_ptr);
+        entry_ptr = std::launder(std::construct_at(entry_ptr));
         entry_ptr->next = free_head;
         free_head = reinterpret_cast<std::byte*>(entry_ptr);
     }
