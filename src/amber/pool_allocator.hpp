@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <type_traits>
 
 namespace amber {
 
@@ -24,28 +25,24 @@ public:
 
     void* allocate();
 
-    template<typename T>
-    T* allocate();
-
     template<typename T, typename... Args>
-    T* allocate_with_construct(Args&&... args);
+    T* allocate(Args&&... args);
 
     void* try_allocate() noexcept;
 
-    template<typename T>
-    T* try_allocate() noexcept;
+    template<typename T, typename... Args>
+    requires std::is_nothrow_constructible_v<T, Args...>
+    T* try_allocate(Args&&... args) noexcept;
 
     void free(void* ptr);
 
     template<typename T>
     void free(T* ptr);
 
-    template<typename T>
-    void free_with_destruct(T* ptr);
-
     bool try_free(void* ptr) noexcept;
 
     template<typename T>
+    requires std::is_nothrow_destructible_v<T>
     bool try_free(T* ptr) noexcept;
 
     void reset() noexcept;

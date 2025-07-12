@@ -5,46 +5,39 @@
 
 namespace amber {
 
-template<typename T>
-T* pool_allocator::allocate()
+template<typename T, typename... Args>
+T* pool_allocator::allocate(Args&&... args)
 {
     if (sizeof(T) > entry_size) {
         throw invalid_allocate_error();
     }
-    return std::launder(static_cast<T*>(allocate));
+    T* output = std::assume_aligned<alignof(T)>(static_cast<T*>(allocate()));
+    return std::launder(std::construct_at(output, std::forward<Args>(args)...));
 }
 
 template<typename T, typename... Args>
-T* pool_allocator::allocate_with_construct(Args&&... args)
-{
-    return std::launder(std::construct_at(allocate<T>(), std::forward<Args>(args)...));
-}
-
-template<typename T>
-T* pool_allocator::try_allocate() noexcept
+requires std::is_nothrow_constructible_v<T, Args...>
+T* pool_allocator::try_allocate(Args&&... args) noexcept
 {
     if (sizeof(T) > entry_size) {
         return nullptr;
     }
-    return std::launder(static_cast<T*>(try_allocate()));
+    T* output = std::assume_aligned<alignof(T)>(static_cast<T*>(allocate()));
+    return std::launder(std::construct_at(output, std::forward<Args>(args)...));
 }
 
 template<typename T>
 void pool_allocator::free(T* ptr)
-{
-    free(static_cast<void*>(ptr));
-}
-
-template<typename T>
-void pool_allocator::free_with_destruct(T* ptr)
 {
     std::destroy_at(ptr);
     free(static_cast<void*>(ptr));
 }
 
 template<typename T>
+requires std::is_nothrow_destructible_v<T>
 bool pool_allocator::try_free(T* ptr) noexcept
 {
+    std::destroy_at(ptr);
     return try_free(static_cast<void*>(ptr));
 }
 
