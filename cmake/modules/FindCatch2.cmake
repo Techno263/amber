@@ -5,16 +5,26 @@ find_path(Catch2_INCLUDE_DIR
 )
 mark_as_advanced(Catch2_INCLUDE_DIR)
 
+set(_catch2_lib_name "Catch2")
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    set(_catch2_lib_name "${_catch2_lib_name}d")
+endif()
 find_library(Catch2_Catch2_LIBRARY
-    NAMES Catch2
+    NAMES "${_catch2_lib_name}"
     NAMES_PER_DIR
 )
+unset(_catch2_lib_name)
 mark_as_advanced(Catch2_Catch2_LIBRARY)
 
+set(_catch2main_lib_name "Catch2Main")
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    set(_catch2main_lib_name "${_catch2main_lib_name}d")
+endif()
 find_library(Catch2_Catch2Main_LIBRARY
-    NAMES Catch2Main
+    NAMES "${_catch2main_lib_name}"
     NAMES_PER_DIR
 )
+unset(_catch2main_lib_name)
 mark_as_advanced(Catch2_Catch2Main_LIBRARY)
 
 foreach(_comp IN LISTS Catch2_FIND_COMPONENTS)

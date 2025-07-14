@@ -1,4 +1,5 @@
 set(AMBER_UNITTEST_SOURCES
+    linear_allocator_test.cpp
     util_test.cpp
 )
 

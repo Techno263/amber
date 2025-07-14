@@ -120,9 +120,9 @@ void pool_allocator::free(void* ptr)
     if (ptr == nullptr) {
         return;
     }
-    if (ptr < buffer || ptr >= (buffer + buffer_size)) {
-        throw out_of_bounds_error();
-    }
+    //if (ptr < buffer || ptr >= (buffer + buffer_size)) {
+    //    throw out_of_bounds_error();
+    //}
     pool_entry* entry_ptr = std::assume_aligned<alignof(pool_entry)>(static_cast<pool_entry*>(ptr));
     entry_ptr = std::launder(std::construct_at(entry_ptr));
     entry_ptr->next = free_head;
@@ -134,9 +134,9 @@ bool pool_allocator::try_free(void* ptr) noexcept
     if (ptr == nullptr) {
         return true;
     }
-    if (ptr < buffer || ptr >= (buffer + buffer_size)) {
-        return false;
-    }
+    //if (ptr < buffer || ptr >= (buffer + buffer_size)) {
+    //    return false;
+    //}
     pool_entry* entry_ptr = std::assume_aligned<alignof(pool_entry)>(static_cast<pool_entry*>(ptr));
     entry_ptr = std::launder(std::construct_at(entry_ptr));
     entry_ptr->next = free_head;

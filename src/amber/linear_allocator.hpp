@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstddef>
-//#include <amber/concepts.hpp>
+#include <type_traits>
 
 namespace amber {
 
@@ -42,14 +42,16 @@ public:
 
     void reset() noexcept;
 
+    std::size_t size() const;
+
+    std::size_t offset() const;
+
 private:
     std::byte* buffer;
     std::size_t buffer_size;
     std::size_t buffer_offset;
 };
 
-//static_assert(SimpleMemoryAllocator<linear_allocator>);
-
-}
+} // namespace amber
 
 #include <amber/linear_allocator.inl>

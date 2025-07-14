@@ -7,6 +7,8 @@
 #include <new>
 #include <utility>
 
+#include <iostream>
+
 namespace amber {
 
 linear_allocator::linear_allocator(linear_allocator&& other) noexcept
@@ -67,7 +69,8 @@ void* linear_allocator::allocate(std::size_t size, std::size_t align)
     std::byte* offset_ptr = buffer + buffer_offset;
     std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
     std::uintptr_t aligned_addr = align_forward_no_check(offset_addr, static_cast<std::uintptr_t>(align));
-    if (aligned_addr + size > buffer_size) {
+    std::uintptr_t aligned_padding = aligned_addr - offset_addr;
+    if (buffer_offset + aligned_padding + size > buffer_size) {
         throw std::bad_alloc();
     }
     std::uintptr_t padding = aligned_addr - offset_addr;
@@ -93,7 +96,8 @@ void* linear_allocator::try_allocate(std::size_t size, std::size_t align) noexce
     std::byte* offset_ptr = buffer + buffer_offset;
     std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
     std::uintptr_t aligned_addr = align_forward_no_check(offset_addr, static_cast<std::uintptr_t>(align));
-    if (aligned_addr + size > buffer_size) {
+    std::uintptr_t aligned_padding = aligned_addr - offset_addr;
+    if (buffer_offset + aligned_padding + size > buffer_size) {
         return nullptr;
     }
     std::uintptr_t padding = aligned_addr - offset_addr;
@@ -116,4 +120,14 @@ void linear_allocator::reset() noexcept
     buffer_offset = 0;
 }
 
+std::size_t linear_allocator::size() const
+{
+    return buffer_size;
 }
+
+std::size_t linear_allocator::offset() const
+{
+    return buffer_offset;
+}
+
+} // namespace amber

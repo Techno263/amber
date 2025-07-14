@@ -6,7 +6,10 @@
 #include <cstddef>
 #include <cstring>
 
-TEST_CASE("align_forward true") {
+namespace amber_test {
+
+TEST_CASE("align_forward true")
+{
     struct test_case {
         struct {
             std::size_t num;
@@ -88,11 +91,12 @@ TEST_CASE("align_forward true") {
         std::size_t actual = amber::align_forward(tc.input.num, tc.input.align);
         UNSCOPED_INFO("expect: " << tc.expect);
         UNSCOPED_INFO("actual: " << actual);
-        CHECK(actual == tc.expect);
+        REQUIRE(actual == tc.expect);
     }
 }
 
-TEST_CASE("align_forward alignment_error") {
+TEST_CASE("align_forward alignment_error")
+{
     struct test_case {
         struct {
             std::size_t num;
@@ -120,15 +124,17 @@ TEST_CASE("align_forward alignment_error") {
         try {
             std::size_t actual = amber::align_forward<std::size_t>(tc.input.num, tc.input.align);
             UNSCOPED_INFO("Unexpected successful function call, actual: " << actual);
-            CHECK(false);
+            REQUIRE(false);
         } catch (const amber::alignment_error& e) {
             const char* actual_err = e.what();
             UNSCOPED_INFO("expect_err: " << tc.expect_err);
             UNSCOPED_INFO("actual_err: " << actual_err);
-            CHECK(std::strcmp(e.what(), tc.expect_err) == 0);
+            REQUIRE(std::strcmp(e.what(), tc.expect_err) == 0);
         } catch (...) {
             UNSCOPED_INFO("Unexpected exception");
-            CHECK(false);
+            REQUIRE(false);
         }
     }
 }
+
+} // namespace amber_test
