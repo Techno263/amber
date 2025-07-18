@@ -14,6 +14,7 @@ set(AMBER_SOURCES
     pool_allocator.cpp
     pool_allocator.hpp
     pool_allocator.inl
+    util.cpp
     util.hpp
     util.inl
 )

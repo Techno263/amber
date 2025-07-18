@@ -15,7 +15,7 @@ public:
 
     pool_allocator(std::size_t entry_size, std::size_t entry_count);
 
-    pool_allocator(std::size_t entry_size, std::size_t entry_count, std::size_t entry_align);
+    pool_allocator(std::size_t entry_alignment, std::size_t entry_size, std::size_t entry_count);
 
     pool_allocator& operator=(const pool_allocator&) = delete;
 
@@ -46,8 +46,6 @@ public:
     bool try_free(T* ptr) noexcept;
 
 private:
-    void init_buffer() noexcept;
-
     std::byte* buffer;
     std::byte* free_head;
     std::size_t buffer_size;

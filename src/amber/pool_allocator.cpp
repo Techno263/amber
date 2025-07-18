@@ -13,6 +13,11 @@ namespace amber {
 namespace {
 
 struct pool_entry {
+public:
+    pool_entry(std::byte* next) noexcept
+        : next(next)
+    {}
+
     std::byte* next;
 };
 
@@ -27,48 +32,45 @@ pool_allocator::pool_allocator(pool_allocator&& other) noexcept
 {}
 
 pool_allocator::pool_allocator(std::size_t entry_size, std::size_t entry_count)
-    : free_head(nullptr),
-    entry_count(entry_count)
-{
-    if (entry_size < sizeof(pool_entry)) {
-        entry_size = sizeof(pool_entry);
-    }
-    this->entry_size = entry_size;
-    buffer_size = this->entry_size * this->entry_count;
-    buffer = static_cast<std::byte*>(std::malloc(buffer_size));
-    if (buffer == nullptr) {
-        throw std::bad_alloc();
-    }
-    init_buffer();
-}
+    : pool_allocator(alignof(std::max_align_t), entry_size, entry_count)
+{}
 
-pool_allocator::pool_allocator(std::size_t entry_size, std::size_t entry_count, std::size_t entry_align)
+pool_allocator::pool_allocator(std::size_t entry_alignment, std::size_t entry_size, std::size_t entry_count)
     : entry_count(entry_count),
     free_head(nullptr)
 {
-    if (!std::has_single_bit(entry_align)) {
-        throw alignment_error("align must be a power of two");
+    if (!std::has_single_bit(entry_alignment)) {
+        throw alignment_error("alignment must be a power of two");
     }
-    // can use max hear signs both alignments are guaranteed to be powers of two, otherwise lcm should be used
-    entry_align = std::max(entry_align, alignof(pool_entry));
+    // can use max here since both alignments are guaranteed to be powers of two, otherwise LCM should be used
+    entry_alignment = std::max(entry_alignment, alignof(pool_entry));
     if (entry_size < sizeof(pool_entry)) {
         entry_size = sizeof(pool_entry);
     }
-    entry_size = align_forward_no_check(entry_size, entry_align);
+    entry_size = align_forward_no_check(entry_alignment, entry_size);
     this->entry_size = entry_size;
     buffer_size = this->entry_size * this->entry_count;
-    buffer = static_cast<std::byte*>(std::aligned_alloc(entry_align, buffer_size));
+    buffer = static_cast<std::byte*>(try_aligned_malloc_no_check(entry_alignment, buffer_size));
     if (buffer == nullptr) {
         throw std::bad_alloc();
     }
-    init_buffer();
+
+    static_assert(std::is_nothrow_constructible_v<pool_entry, decltype(free_head)>);
+    free_head = nullptr;
+    for (std::size_t i = 0; i < entry_count; ++i) {
+        pool_entry* entry_ptr = reinterpret_cast<pool_entry*>(buffer + (i * entry_size));
+        entry_ptr = std::assume_aligned<alignof(pool_entry)>(entry_ptr);
+        entry_ptr = std::launder(std::construct_at(entry_ptr, free_head));
+        //entry_ptr->next = free_head;
+        free_head = reinterpret_cast<std::byte*>(entry_ptr);
+    }
 }
 
 pool_allocator& pool_allocator::operator=(pool_allocator&& other) noexcept
 {
     if (this != &other) {
         if (buffer != nullptr) {
-            std::free(buffer);
+            aligned_free(buffer);
         }
         buffer = std::exchange(other.buffer, nullptr);
         free_head = std::exchange(other.free_head, nullptr);
@@ -82,7 +84,7 @@ pool_allocator& pool_allocator::operator=(pool_allocator&& other) noexcept
 pool_allocator::~pool_allocator() noexcept
 {
     if (buffer != nullptr) {
-        std::free(buffer);
+        aligned_free(buffer);
         buffer = nullptr;
     }
     free_head = nullptr;
@@ -124,13 +126,14 @@ void pool_allocator::free(void* ptr)
     //    throw out_of_bounds_error();
     //}
     pool_entry* entry_ptr = std::assume_aligned<alignof(pool_entry)>(static_cast<pool_entry*>(ptr));
-    entry_ptr = std::launder(std::construct_at(entry_ptr));
-    entry_ptr->next = free_head;
+    entry_ptr = std::launder(std::construct_at(entry_ptr, free_head));
+    //entry_ptr->next = free_head;
     free_head = reinterpret_cast<std::byte*>(entry_ptr);
 }
 
 bool pool_allocator::try_free(void* ptr) noexcept
 {
+    static_assert(std::is_nothrow_constructible_v<pool_entry, decltype(free_head)>);
     if (ptr == nullptr) {
         return true;
     }
@@ -138,23 +141,10 @@ bool pool_allocator::try_free(void* ptr) noexcept
     //    return false;
     //}
     pool_entry* entry_ptr = std::assume_aligned<alignof(pool_entry)>(static_cast<pool_entry*>(ptr));
-    entry_ptr = std::launder(std::construct_at(entry_ptr));
-    entry_ptr->next = free_head;
+    entry_ptr = std::launder(std::construct_at(entry_ptr, free_head));
+    //entry_ptr->next = free_head;
     free_head = reinterpret_cast<std::byte*>(entry_ptr);
     return true;
-}
-
-void pool_allocator::init_buffer() noexcept
-{
-    static_assert(std::is_nothrow_constructible_v<pool_entry>);
-    free_head = nullptr;
-    for (std::size_t i = 0; i < entry_count; ++i) {
-        pool_entry* entry_ptr = reinterpret_cast<pool_entry*>(buffer + (i * entry_size));
-        entry_ptr = std::assume_aligned<alignof(pool_entry)>(entry_ptr);
-        entry_ptr = std::launder(std::construct_at(entry_ptr));
-        entry_ptr->next = free_head;
-        free_head = reinterpret_cast<std::byte*>(entry_ptr);
-    }
 }
 
 } // namespace amber

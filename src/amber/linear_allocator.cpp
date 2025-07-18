@@ -7,8 +7,6 @@
 #include <new>
 #include <utility>
 
-#include <iostream>
-
 namespace amber {
 
 linear_allocator::linear_allocator(linear_allocator&& other) noexcept
@@ -18,30 +16,21 @@ linear_allocator::linear_allocator(linear_allocator&& other) noexcept
 {}
 
 linear_allocator::linear_allocator(std::size_t size)
-    : buffer_size(size),
-    buffer_offset(0)
-{
-    buffer = static_cast<std::byte*>(std::malloc(size));
-    if (buffer == nullptr) {
-        throw std::bad_alloc();
-    }
-}
+    : linear_allocator(alignof(std::max_align_t), size)
+{}
 
-linear_allocator::linear_allocator(std::size_t size, std::size_t align)
+linear_allocator::linear_allocator(std::size_t alignment, std::size_t size)
     : buffer_size(size),
     buffer_offset(0)
 {
-    buffer = static_cast<std::byte*>(std::aligned_alloc(align, size));
-    if (buffer == nullptr) {
-        throw std::bad_alloc();
-    }
+    buffer = static_cast<std::byte*>(aligned_malloc(alignment, size));
 }
 
 linear_allocator& linear_allocator::operator=(linear_allocator&& other) noexcept
 {
     if (this != &other) {
         if (buffer != nullptr) {
-            std::free(buffer);
+            aligned_free(buffer);
             buffer = nullptr;
         }
         buffer = std::exchange(other.buffer, nullptr);
@@ -54,27 +43,26 @@ linear_allocator& linear_allocator::operator=(linear_allocator&& other) noexcept
 linear_allocator::~linear_allocator() noexcept
 {
     if (buffer != nullptr) {
-        std::free(buffer);
+        aligned_free(buffer);
         buffer = nullptr;
     }
     buffer_size = 0;
     buffer_offset = 0;
 }
 
-void* linear_allocator::allocate(std::size_t size, std::size_t align)
+void* linear_allocator::allocate(std::size_t alignment, std::size_t size)
 {
-    if (!std::has_single_bit(align)) {
-        throw alignment_error("align must be a power of two");
+    if (!std::has_single_bit(alignment)) {
+        throw alignment_error("alignment must be a power of two");
     }
     std::byte* offset_ptr = buffer + buffer_offset;
     std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
-    std::uintptr_t aligned_addr = align_forward_no_check(offset_addr, static_cast<std::uintptr_t>(align));
+    std::uintptr_t aligned_addr = align_forward_no_check(static_cast<std::uintptr_t>(alignment), offset_addr);
     std::uintptr_t aligned_padding = aligned_addr - offset_addr;
     if (buffer_offset + aligned_padding + size > buffer_size) {
         throw std::bad_alloc();
     }
-    std::uintptr_t padding = aligned_addr - offset_addr;
-    buffer_offset += padding + size;
+    buffer_offset += aligned_padding + size;
     return reinterpret_cast<void*>(aligned_addr);
 }
 
@@ -88,20 +76,19 @@ void* linear_allocator::allocate(std::size_t size)
     return output;
 }
 
-void* linear_allocator::try_allocate(std::size_t size, std::size_t align) noexcept
+void* linear_allocator::try_allocate(std::size_t alignment, std::size_t size) noexcept
 {
-    if (!std::has_single_bit(align)) {
+    if (!std::has_single_bit(alignment)) {
         return nullptr;
     }
     std::byte* offset_ptr = buffer + buffer_offset;
     std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
-    std::uintptr_t aligned_addr = align_forward_no_check(offset_addr, static_cast<std::uintptr_t>(align));
+    std::uintptr_t aligned_addr = align_forward_no_check(static_cast<std::uintptr_t>(alignment), offset_addr);
     std::uintptr_t aligned_padding = aligned_addr - offset_addr;
     if (buffer_offset + aligned_padding + size > buffer_size) {
         return nullptr;
     }
-    std::uintptr_t padding = aligned_addr - offset_addr;
-    buffer_offset += padding + size;
+    buffer_offset += aligned_padding + size;
     return reinterpret_cast<void*>(aligned_addr);
 }
 

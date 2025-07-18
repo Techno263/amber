@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-//#include <amber/concepts.hpp>
 
 namespace amber {
 
@@ -11,37 +10,32 @@ public:
 
     stack_allocator(const stack_allocator&) = delete;
 
-    stack_allocator(stack_allocator&&) noexcept;
+    stack_allocator(stack_allocator&& other) noexcept;
 
     explicit
     stack_allocator(std::size_t size);
 
-    stack_allocator(std::size_t size, std::size_t align);
+    stack_allocator(std::size_t alignment, std::size_t size);
 
     stack_allocator& operator=(const stack_allocator&) = delete;
 
-    stack_allocator& operator=(stack_allocator&&) noexcept;
+    stack_allocator& operator=(stack_allocator&& other) noexcept;
 
     ~stack_allocator() noexcept;
 
-    void* allocate(std::size_t size, std::size_t align);
+    void* allocate(std::size_t alignment, std::size_t size);
 
     void* allocate(std::size_t size);
 
     template<typename T>
-    T* allocate(std::size_t count);
-
-    template<typename T>
     T* allocate();
 
-    void* try_allocate(std::size_t size, std::size_t align) noexcept;
+    void* try_allocate(std::size_t alignment, std::size_t size) noexcept;
 
     void* try_allocate(std::size_t size) noexcept;
 
-    template<typename T>
-    T* try_allocate(std::size_t count) noexcept;
-
-    template<typename T>
+    template<typename T, typename... Args>
+    requires std::is_nothrow_constructible_v<T, Args...>
     T* try_allocate() noexcept;
 
     void free(void* ptr);
@@ -52,16 +46,20 @@ public:
     bool try_free(void* ptr) noexcept;
 
     template<typename T>
+    requires std::is_nothrow_destructible_v<T>
     bool try_free(T* ptr) noexcept;
-
-    void reset() noexcept;
 
 private:
     std::byte* buffer;
+    std::byte* previous_alloc;
     std::size_t buffer_size;
     std::size_t buffer_offset;
-};
 
-//static_assert(MemoryAllocator<stack_allocator>):
+    friend auto allocate_helper(stack_allocator* a, std::size_t size) noexcept
+        -> struct allocate_result;
+
+    friend auto allocate_align_helper(stack_allocator* a, std::size_t alignment, std::size_t size) noexcept
+        -> struct allocate_align_result;
+};
 
 }

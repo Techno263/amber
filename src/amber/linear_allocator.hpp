@@ -16,7 +16,7 @@ public:
     explicit
     linear_allocator(std::size_t size);
 
-    linear_allocator(std::size_t size, std::size_t align);
+    linear_allocator(std::size_t alignment, std::size_t size);
 
     linear_allocator& operator=(const linear_allocator&) = delete;
 
@@ -24,7 +24,7 @@ public:
 
     ~linear_allocator() noexcept;
 
-    void* allocate(std::size_t size, std::size_t align);
+    void* allocate(std::size_t alignment, std::size_t size);
 
     void* allocate(std::size_t size);
 
@@ -32,7 +32,7 @@ public:
     requires std::is_trivially_destructible_v<T>
     T* allocate(Args&&... args);
 
-    void* try_allocate(std::size_t size, std::size_t align) noexcept;
+    void* try_allocate(std::size_t alignment, std::size_t size) noexcept;
 
     void* try_allocate(std::size_t size) noexcept;
 
