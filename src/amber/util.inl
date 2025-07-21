@@ -5,35 +5,21 @@ namespace amber {
 
 template<typename IntegerType>
 requires std::unsigned_integral<IntegerType>
-constexpr IntegerType is_aligned(IntegerType alignment, IntegerType value)
+constexpr bool is_aligned(IntegerType alignment, IntegerType value) noexcept
 {
     if (!std::has_single_bit(alignment)) {
-        throw alignment_error("alignment must be a power of two");
+        return false;
     }
-    return is_aligned_no_check(alignment, value);
-}
-
-template<typename IntegerType>
-requires std::unsigned_integral<IntegerType>
-constexpr IntegerType is_aligned_no_check(IntegerType alignment, IntegerType value) noexcept
-{
     return ((alignment - 1) & value) == 0;
 }
 
 template<typename IntegerType>
 requires std::unsigned_integral<IntegerType>
-constexpr IntegerType align_forward(IntegerType alignment, IntegerType value)
+constexpr IntegerType align_forward(IntegerType alignment, IntegerType value) noexcept
 {
     if (!std::has_single_bit(alignment)) {
-        throw alignment_error("alignment must be a power of two");
+        return 0;
     }
-    return align_forward_no_check(alignment, value);
-}
-
-template<typename IntegerType>
-requires std::unsigned_integral<IntegerType>
-constexpr IntegerType align_forward_no_check(IntegerType alignment, IntegerType value) noexcept
-{
     // based of gcc's libstdc++ align function
     return (value - 1 + alignment) & -alignment;
 }

@@ -5,18 +5,14 @@ namespace amber {
 
 template<typename T, typename... Args>
 requires std::is_trivially_destructible_v<T>
-T* linear_allocator::allocate(Args&&... args)
+std::expected<T*, alloc_error> linear_allocator::allocate(Args&&... args) noexcept
 {
-    T* output = std::assume_aligned<alignof(T)>(static_cast<T*>(allocate(alignof(T), sizeof(T))));
-    return std::launder(std::construct_at(output, std::forward<Args>(args)...));
-}
-
-template<typename T, typename... Args>
-requires std::is_trivially_destructible_v<T> && std::is_nothrow_constructible_v<T, Args...>
-T* linear_allocator::try_allocate(Args&&... args) noexcept
-{
-    T* output = std::assume_aligned<alignof(T)>(static_cast<T*>(allocate(alignof(T), sizeof(T))));
-    return std::launder(std::construct_at(output, std::forward<Args>(args)...));
+    auto exp_ptr = allocate(alignof(T), sizeof(T));
+    if (!exp_ptr.has_value()) [[unlikely]] {
+        return std::unexpected(exp_ptr.error());
+    }
+    T* ptr = std::assume_aligned<alignof(T)>(static_cast<T*>(exp_ptr.value()));
+    return std::launder(std::construct_at(ptr, std::forward<Args>(args)...));
 }
 
 }

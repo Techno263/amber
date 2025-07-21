@@ -1,3 +1,4 @@
+#include <amber/alloc_error.hpp>
 #include <amber/except.hpp>
 #include <amber/linear_allocator.hpp>
 #include <amber/util.hpp>
@@ -10,111 +11,91 @@
 namespace amber {
 
 linear_allocator::linear_allocator(linear_allocator&& other) noexcept
-    : buffer(std::exchange(other.buffer, nullptr)),
-    buffer_size(std::exchange(other.buffer_size, 0)),
-    buffer_offset(std::exchange(other.buffer_offset, 0))
+    : buffer_(std::exchange(other.buffer_, nullptr)),
+    buffer_size_(std::exchange(other.buffer_size_, 0)),
+    buffer_offset_(std::exchange(other.buffer_offset_, 0))
 {}
 
-linear_allocator::linear_allocator(std::size_t size)
-    : linear_allocator(alignof(std::max_align_t), size)
-{}
-
-linear_allocator::linear_allocator(std::size_t alignment, std::size_t size)
-    : buffer_size(size),
-    buffer_offset(0)
+std::expected<linear_allocator, alloc_error> create(std::size_t alignment, std::size_t size) noexcept
 {
-    buffer = static_cast<std::byte*>(aligned_malloc(alignment, size));
+    auto exp_buffer = aligned_alloc(alignment, size);
+    if (!exp_buffer.has_value()) [[unlikely]] {
+        return std::unexpected(exp_buffer.error());
+    }
+    // Always return constructor for Return Value Optimization (RVO) using copy elision
+    return linear_allocator(exp_buffer.value(), size, 0);
+}
+
+std::expected<linear_allocator, alloc_error> create(std::size_t size) noexcept
+{
+    // Always directly return `create` for RVO
+    return create(alignof(std::max_align_t), size);
 }
 
 linear_allocator& linear_allocator::operator=(linear_allocator&& other) noexcept
 {
     if (this != &other) {
-        if (buffer != nullptr) {
-            aligned_free(buffer);
-            buffer = nullptr;
+        if (buffer_ != nullptr) {
+            aligned_free(buffer_);
+            buffer_ = nullptr;
         }
-        buffer = std::exchange(other.buffer, nullptr);
-        buffer_size = std::exchange(other.buffer_size, 0);
-        buffer_offset = std::exchange(other.buffer_offset, 0);
+        buffer_ = std::exchange(other.buffer_, nullptr);
+        buffer_size_ = std::exchange(other.buffer_size_, 0);
+        buffer_offset_ = std::exchange(other.buffer_offset_, 0);
     }
     return *this;
 }
 
 linear_allocator::~linear_allocator() noexcept
 {
-    if (buffer != nullptr) {
-        aligned_free(buffer);
-        buffer = nullptr;
+    if (buffer_ != nullptr) {
+        aligned_free(buffer_);
+        buffer_ = nullptr;
     }
-    buffer_size = 0;
-    buffer_offset = 0;
+    buffer_size_ = 0;
+    buffer_offset_ = 0;
 }
 
-void* linear_allocator::allocate(std::size_t alignment, std::size_t size)
+std::expected<void*, alloc_error> linear_allocator::allocate(std::size_t alignment, std::size_t size) noexcept
 {
-    if (!std::has_single_bit(alignment)) {
-        throw alignment_error("alignment must be a power of two");
+    if (!std::has_single_bit(alignment)) [[unlikely]] {
+        return std::unexpected(alloc_error::alignment_error);
     }
-    std::byte* offset_ptr = buffer + buffer_offset;
+    std::byte* offset_ptr = buffer_ + buffer_offset_;
     std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
-    std::uintptr_t aligned_addr = align_forward_no_check(static_cast<std::uintptr_t>(alignment), offset_addr);
+    std::uintptr_t aligned_addr = align_forward(static_cast<std::uintptr_t>(alignment), offset_addr);
     std::uintptr_t aligned_padding = aligned_addr - offset_addr;
-    if (buffer_offset + aligned_padding + size > buffer_size) {
-        throw std::bad_alloc();
+    if (buffer_offset_ + aligned_padding + size > buffer_size_) [[unlikely]] {
+        return std::unexpected(alloc_error::bad_alloc_error);
     }
-    buffer_offset += aligned_padding + size;
+    buffer_offset_ += aligned_padding + size;
     return reinterpret_cast<void*>(aligned_addr);
 }
 
-void* linear_allocator::allocate(std::size_t size)
+void* linear_allocator::allocate(std::size_t size) noexcept
 {
-    if (buffer_offset + size > buffer_size) {
-        std::bad_alloc();
-    }
-    void* output = static_cast<void*>(buffer + buffer_offset);
-    buffer_offset += size;
-    return output;
-}
-
-void* linear_allocator::try_allocate(std::size_t alignment, std::size_t size) noexcept
-{
-    if (!std::has_single_bit(alignment)) {
-        return nullptr;
-    }
-    std::byte* offset_ptr = buffer + buffer_offset;
-    std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
-    std::uintptr_t aligned_addr = align_forward_no_check(static_cast<std::uintptr_t>(alignment), offset_addr);
-    std::uintptr_t aligned_padding = aligned_addr - offset_addr;
-    if (buffer_offset + aligned_padding + size > buffer_size) {
-        return nullptr;
-    }
-    buffer_offset += aligned_padding + size;
-    return reinterpret_cast<void*>(aligned_addr);
-}
-
-void* linear_allocator::try_allocate(std::size_t size) noexcept
-{
-    if (buffer_offset + size > buffer_size) {
-        return nullptr;
-    }
-    void* output = static_cast<void*>(buffer + buffer_offset);
-    buffer_offset += size;
-    return output;
+    return allocate(alignof(std::max_align_t), size);
 }
 
 void linear_allocator::reset() noexcept
 {
-    buffer_offset = 0;
+    buffer_offset_ = 0;
 }
 
-std::size_t linear_allocator::size() const
+std::size_t linear_allocator::buffer_size() const noexcept
 {
-    return buffer_size;
+    return buffer_size_;
 }
 
-std::size_t linear_allocator::offset() const
+std::size_t linear_allocator::buffer_offset() const noexcept
 {
-    return buffer_offset;
+    return buffer_offset_;
 }
+
+linear_allocator::linear_allocator(std::byte* buffer, std::size_t buffer_size, std::size_t buffer_offset)
+    : buffer_(buffer),
+    buffer_size_(buffer_size),
+    buffer_offset_(buffer_offset)
+{}
 
 } // namespace amber

@@ -2,6 +2,7 @@
 #include <amber/util.hpp>
 #include <cstdlib>
 #include <cstring>
+#include <expected>
 #include <memory>
 #include <new>
 
@@ -9,23 +10,7 @@ namespace amber {
 
 namespace {
 
-enum class malloc_status {
-    success,
-    alignment_error,
-    bad_alloc,
-};
-
-struct malloc_result {
-public:
-    malloc_result(void* ptr, malloc_status status) noexcept
-        : ptr(ptr), status(status)
-    {}
-
-    void* ptr;
-    malloc_status status;
-};
-
-inline malloc_result _aligned_malloc_no_check_helper(std::size_t alignment, std::size_t size) noexcept
+inline std::expected<void*, alloc_error> _aligned_alloc(std::size_t alignment, std::size_t size) noexcept
 {
     // Sanity checks
     static_assert((sizeof(void*) % alignof(void*)) == 0);
@@ -34,12 +19,15 @@ inline malloc_result _aligned_malloc_no_check_helper(std::size_t alignment, std:
     static_assert(sizeof(void*) <= alignof(std::max_align_t));
     static_assert((alignof(std::max_align_t) % alignof(void*)) == 0);
 
+    if (!std::has_single_bit(alignment)) {
+        return std::unexpected(alloc_error::alignment_error);
+    }
     if (alignment < alignof(std::max_align_t)) {
         alignment = alignof(std::max_align_t);
     }
     std::byte* malloc_ptr = static_cast<std::byte*>(std::malloc(alignment + size));
     if (malloc_ptr == nullptr) {
-        return malloc_result(nullptr, malloc_status::bad_alloc);
+        return std::unexpected(alloc_error::bad_alloc_error);
     }
     std::byte* shifted_ptr = malloc_ptr + alignof(std::max_align_t);
     std::uintptr_t shifted_addr = reinterpret_cast<std::uintptr_t>(shifted_ptr);
@@ -47,65 +35,7 @@ inline malloc_result _aligned_malloc_no_check_helper(std::size_t alignment, std:
     std::byte* aligned_ptr = reinterpret_cast<std::byte*>(aligned_addr);
     aligned_ptr = std::assume_aligned<alignof(std::max_align_t)>(aligned_ptr);
     std::memcpy(aligned_ptr - sizeof(void*), &malloc_ptr, sizeof(void*));
-    return malloc_result(static_cast<void*>(aligned_ptr), malloc_status::success);
-}
-
-inline malloc_result _aligned_malloc_helper(std::size_t alignment, std::size_t size) noexcept
-{
-    if (!std::has_single_bit(alignment)) {
-        return malloc_result(nullptr, malloc_status::alignment_error);
-    }
-    return _aligned_malloc_no_check_helper(alignment, size);
-}
-
-inline void* _aligned_malloc_no_check(std::size_t alignment, std::size_t size)
-{
-    malloc_result res = _aligned_malloc_no_check_helper(alignment, size);
-    switch (res.status) {
-    case malloc_status::success:
-        return res.ptr;
-    case malloc_status::bad_alloc:
-        throw std::bad_alloc();
-    default:
-        throw unexpected_error();
-    }
-}
-
-inline void* _aligned_malloc(std::size_t alignment, std::size_t size)
-{
-    malloc_result res = _aligned_malloc_helper(alignment, size);
-    switch (res.status) {
-    case malloc_status::success:
-        return res.ptr;
-    case malloc_status::alignment_error:
-        throw alignment_error("alignment must be a power of two");
-    case malloc_status::bad_alloc:
-        throw std::bad_alloc();
-    default:
-        throw unexpected_error();
-    }
-}
-
-inline void* _try_aligned_malloc_no_check(std::size_t alignment, std::size_t size) noexcept
-{
-    malloc_result res = _aligned_malloc_no_check_helper(alignment, size);
-    switch (res.status) {
-    case malloc_status::success:
-        return res.ptr;
-    default:
-        return nullptr;
-    }
-}
-
-inline void* _try_aligned_malloc(std::size_t alignment, std::size_t size) noexcept
-{
-    malloc_result res = _aligned_malloc_helper(alignment, size);
-    switch (res.status) {
-    case malloc_status::success:
-        return res.ptr;
-    default:
-        return nullptr;
-    }
+    return static_cast<void*>(aligned_ptr);
 }
 
 inline void _aligned_free(void* ptr) noexcept
@@ -121,39 +51,12 @@ inline void _aligned_free(void* ptr) noexcept
 
 } // unnamed namespace
 
-void* aligned_malloc_no_check(std::size_t alignment, std::size_t size)
+std::expected<void*, alloc_error> aligned_alloc(std::size_t alignment, std::size_t size)
 {
 #ifdef AMBER_USE_CPP_ALIGNED_ALLOC
     return std::aligned_alloc(alignment, size);
 #else
-    return _aligned_malloc(alignment, size);
-#endif
-}
-
-void* aligned_malloc(std::size_t alignment, std::size_t size)
-{
-#ifdef AMBER_USE_CPP_ALIGNED_ALLOC
-    return std::aligned_alloc(alignment, size);
-#else
-    return _aligned_malloc(alignment, size);
-#endif
-}
-
-void* try_aligned_malloc_no_check(std::size_t alignment, std::size_t size) noexcept
-{
-#ifdef AMBER_USE_CPP_ALIGNED_ALLOC
-    return std::aligned_alloc(alignment, size);
-#else
-    return _try_aligned_malloc_no_check(alignment, size);
-#endif
-}
-
-void* try_aligned_malloc(std::size_t alignment, std::size_t size) noexcept
-{
-#ifdef AMBER_USE_CPP_ALIGNED_ALLOC
-    return std::aligned_alloc(alignment, size);
-#else
-    return _try_aligned_malloc(alignment, size);
+    return _aligned_alloc(alignment, size);
 #endif
 }
 
