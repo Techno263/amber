@@ -4,11 +4,25 @@
 
 namespace amber {
 
+template<typename T>
+std::expected<pool_allocator, alloc_error> pool_allocator::create(
+    std::size_t entry_count) noexcept
+{
+    // Always directly return `create` for RVO
+    return create(
+        std::max(alignof(T), alignof(std::max_align_t)),
+        alignof(T),
+        sizeof(T),
+        entry_count
+    );
+}
+
 template<typename T, typename... Args>
-std::expected<T*, allocate_error> pool_allocator::allocate(Args&&... args) noexcept
+requires std::is_nothrow_constructible_v<T, Args...>
+std::expected<T*, alloc_error> pool_allocator::allocate(Args&&... args) noexcept
 {
     if (sizeof(T) > entry_size_) [[unlikely]] {
-        return std::unexpected(allocate_error::invalid_alloc_error);
+        return std::unexpected(alloc_error::invalid_alloc_error);
     }
     auto exp_ptr = allocate();
     if (!exp_ptr.has_value()) [[unlikely]] {
@@ -19,6 +33,7 @@ std::expected<T*, allocate_error> pool_allocator::allocate(Args&&... args) noexc
 }
 
 template<typename T>
+requires std::is_nothrow_destructible_v<T>
 void pool_allocator::free(T* ptr) noexcept
 {
     std::destroy_at(ptr);

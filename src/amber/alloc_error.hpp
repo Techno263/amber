@@ -2,7 +2,7 @@
 
 namespace amber {
 
-enum class allocate_error {
+enum class alloc_error {
     alignment_error,
     bad_alloc_error,
     invalid_alloc_error,

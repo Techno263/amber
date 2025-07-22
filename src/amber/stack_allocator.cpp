@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <expected>
+#include <memory>
 #include <stdexcept>
 #include <utility>
 
@@ -25,59 +26,12 @@ public:
 static_assert((sizeof(alloc_header) % alignof(alloc_header)) == 0);
 static_assert(std::has_single_bit(alignof(alloc_header)));
 
-std::expected<void*, allocate_error> allocate_helper(stack_allocator* a, std::size_t size) noexcept
-{
-    if (a->buffer_offset + size > a->buffer_size) {
-        return std::unexpected(allocate_error::bad_alloc);
-    }
-    void* output = static_cast<void*>(a->buffer + a->buffer_offset);
-    a->buffer_offset += size;
-    return std::expected(output);
-}
-
-std::expected<void*, allocate_error> allocate_align_helper(stack_allocator* a, std::size_t alignment, std::size_t size) noexcept
-{
-    if (!std::has_single_bit(alignment)) {
-        return std::unexpected(allocate_error::alignment_error);
-    }
-    if (alignment < alignof(alloc_header)) {
-        alignment = alignof(alloc_header);
-    }
-    if (a->buffer_offset != 0) {
-        // Add alloc_header when not at start of buffer
-        std::byte* offset_ptr = a->buffer + a->buffer_offset;
-        std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
-        std::uintptr_t target_addr = offset_addr + sizeof(alloc_header);
-        std::uintptr_t aligned_addr = align_forward_no_check(static_cast<std::uintptr_t>(alignment), target_addr);
-        std::uintptr_t aligned_padding = aligned_addr - offset_addr;
-        if (a->buffer_offset + aligned_padding + size > a->buffer_size) {
-            return std::unexpected(allocate_error::bad_alloc);
-        }
-        // Create and set alloc_header
-        alloc_header* header_ptr = reinterpret_cast<alloc_header*>(aligned_addr - sizeof(alloc_header));
-        header_ptr = std::assume_aligned<alignof(alloc_header)>(header_ptr);
-        header_ptr = std::launder(std::construct_at(header_ptr, aligned_padding));
-
-        a->buffer_offset += aligned_padding + size;
-        return std::expected(reinterpret_cast<void*>(aligned_addr));
-    } else {
-        // At start of buffer
-        if 
-        // Handle alloc at start of buffer
-        if (size > a->buffer_size) {
-            return allocate_align_result(nullptr, allocate_align_status::bad_alloc);
-        }
-        a->buffer_offset += size;
-        return allocate_align_result(static_cast<void*>(a->buffer), allocate_align_status::success);
-    }
-}
-
-} // namespace <unnamed>
+} // unnamed namespace
 
 stack_allocator::stack_allocator(stack_allocator&& other) noexcept
-    : buffer(std::exchange(other.buffer, nullptr)),
-    buffer_size(std::exchange(other.buffer_size, 0)),
-    buffer_offset(std::exchange(other.buffer_offset, 0))
+    : buffer_(std::exchange(other.buffer_, nullptr)),
+    buffer_size_(std::exchange(other.buffer_size_, 0)),
+    buffer_offset_(std::exchange(other.buffer_offset_, 0))
 {}
 
 std::expected<stack_allocator, alloc_error> stack_allocator::create(
@@ -85,7 +39,11 @@ std::expected<stack_allocator, alloc_error> stack_allocator::create(
     std::size_t size
 ) noexcept
 {
-    std::byte* buffer = static_cast<std::byte*>(aligned_malloc(alignment, size));
+    auto exp_buffer = aligned_alloc(alignment, size);
+    if (!exp_buffer.has_value()) [[unlikely]] {
+        std::unexpected(exp_buffer.error());
+    }
+    std::byte* buffer = reinterpret_cast<std::byte*>(exp_buffer.value());
     return stack_allocator(buffer, size, 0);
 }
 
@@ -96,7 +54,7 @@ std::expected<stack_allocator, alloc_error> stack_allocator::create(
     return create(alignof(std::max_align_t), size);
 }
 
-stack_allocator& stack_allocator::operator=(linear_allocator&& other) noexcept
+stack_allocator& stack_allocator::operator=(stack_allocator&& other) noexcept
 {
     if (this != &other) {
         if (buffer_ != nullptr) {
@@ -126,7 +84,21 @@ std::expected<void*, alloc_error> stack_allocator::allocate(
         return std::unexpected(alloc_error::alignment_error);
     }
     alignment = std::max(alignof(alloc_header), alignment);
-    // TODO
+    std::byte* offset_ptr = buffer_ + buffer_offset_;
+    std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
+    std::uintptr_t target_addr = offset_addr + sizeof(alloc_header);
+    std::uintptr_t aligned_addr = align_forward(static_cast<std::uintptr_t>(alignment), target_addr);
+    std::uintptr_t aligned_padding = aligned_addr - offset_addr;
+    if (buffer_offset_ + aligned_padding + size > buffer_size_) [[unlikely]] {
+        return std::unexpected(alloc_error::bad_alloc_error);
+    }
+    // Create and set alloc_header
+    alloc_header* header_ptr = reinterpret_cast<alloc_header*>(aligned_addr - sizeof(alloc_header));
+    header_ptr = std::assume_aligned<alignof(alloc_header)>(header_ptr);
+    header_ptr = std::launder(std::construct_at(header_ptr, aligned_padding));
+
+    buffer_offset_ += aligned_padding + size;
+    return reinterpret_cast<void*>(aligned_addr);
 }
 
 std::expected<void*, alloc_error> stack_allocator::allocate(std::size_t size) noexcept
@@ -139,8 +111,12 @@ void stack_allocator::free(void* ptr) noexcept
     if (ptr == nullptr) {
         return;
     }
-    std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(ptr);
-    // TODO
+    std::uintptr_t aligned_addr = reinterpret_cast<std::uintptr_t>(ptr);
+    std::uintptr_t buffer_addr = reinterpret_cast<std::uintptr_t>(buffer_);
+    alloc_header* header_ptr = reinterpret_cast<alloc_header*>(aligned_addr - sizeof(alloc_header));
+    std::uintptr_t aligned_padding = header_ptr->padding;
+    std::uintptr_t new_offset = aligned_addr - aligned_padding - buffer_addr;
+    buffer_offset_ = new_offset;
 }
 
 std::size_t stack_allocator::buffer_size() const noexcept
@@ -152,5 +128,15 @@ std::size_t stack_allocator::buffer_offset() const noexcept
 {
     return buffer_offset_;
 }
+
+stack_allocator::stack_allocator(
+    std::byte* buffer,
+    std::size_t buffer_size,
+    std::size_t buffer_offset
+) noexcept
+    : buffer_(buffer),
+    buffer_size_(buffer_size),
+    buffer_offset_(buffer_offset)
+{}
 
 }

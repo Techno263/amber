@@ -1,4 +1,3 @@
-#include <amber/except.hpp>
 #include <amber/pool_allocator.hpp>
 #include <amber/util.hpp>
 #include <bit>
@@ -22,7 +21,6 @@ public:
 };
 // Sanity check
 static_assert(std::has_single_bit(alignof(pool_entry)));
-static_assert(std::is_nothrow_constructible_v<pool_entry, decltype(free_head)>);
 
 } // namespace
 
@@ -55,11 +53,12 @@ std::expected<pool_allocator, alloc_error> pool_allocator::create(
     std::size_t buffer_size = entry_size * entry_count;
     auto exp_buffer = aligned_alloc(entry_alignment, buffer_size);
     if (!exp_buffer.has_value()) [[unlikely]] {
-        return std::unexpected(exp.error());
+        return std::unexpected(exp_buffer.error());
     }
     std::byte* buffer = static_cast<std::byte*>(exp_buffer.value());
 
     std::byte* free_head = nullptr;
+    static_assert(std::is_nothrow_constructible_v<pool_entry, decltype(free_head)>);
     for (std::size_t i = 0; i < entry_count; ++i) {
         pool_entry* entry_ptr = reinterpret_cast<pool_entry*>(buffer + (i * entry_size));
         entry_ptr = std::assume_aligned<alignof(pool_entry)>(entry_ptr);
@@ -71,7 +70,7 @@ std::expected<pool_allocator, alloc_error> pool_allocator::create(
     return pool_allocator(buffer, free_head, buffer_size, entry_size, entry_count);
 }
 
-std::expected<pool_alloctor, alloc_error> pool_allocator::create(
+std::expected<pool_allocator, alloc_error> pool_allocator::create(
     std::size_t entry_alignment,
     std::size_t entry_size,
     std::size_t entry_count
@@ -86,18 +85,6 @@ std::expected<pool_allocator, alloc_error> pool_allocator::create(
 {
     // Always directly return `create` for RVO
     return create(alignof(std::max_align_t), 1, entry_size, entry_count);
-}
-
-template<typename T>
-std::expected<pool_allocator, alloc_error> create(std::size_t entry_count) noexcept
-{
-    // Always directly return `create` for RVO
-    return create(
-        std::max(alignof(T), alignof(std::max_align_t)),
-        alignof(T),
-        sizeof(T),
-        entry_count
-    );
 }
 
 pool_allocator& pool_allocator::operator=(pool_allocator&& other) noexcept
@@ -127,7 +114,7 @@ pool_allocator::~pool_allocator() noexcept
     entry_count_ = 0;
 }
 
-std::expected<void* alloc_error> pool_allocator::allocate()
+std::expected<void*, alloc_error> pool_allocator::allocate() noexcept
 {
     if (free_head_ == nullptr) [[unlikely]] {
         return std::unexpected(alloc_error::out_of_capacity_error);
@@ -135,11 +122,11 @@ std::expected<void* alloc_error> pool_allocator::allocate()
     pool_entry* entry_ptr = reinterpret_cast<pool_entry*>(free_head_);
     entry_ptr = std::assume_aligned<alignof(pool_entry)>(entry_ptr);
     free_head_ = entry_ptr->next;
-    std::memset(entry_ptr, 0, entry_size_);
+    std::memset(reinterpret_cast<void*>(entry_ptr), 0, entry_size_);
     return entry_ptr;
 }
 
-void pool_allocator::free(void* ptr)
+void pool_allocator::free(void* ptr) noexcept
 {
     if (ptr == nullptr) {
         return;
@@ -167,8 +154,8 @@ std::size_t pool_allocator::entry_count() const noexcept
 pool_allocator::pool_allocator(
     std::byte* buffer, std::byte* free_head, std::size_t buffer_size, std::size_t entry_size, std::size_t entry_count) noexcept
     : buffer_(buffer),
-    free_head(_free_head),
-    buffer_size(_buffer_size),
+    free_head_(free_head),
+    buffer_size_(buffer_size),
     entry_size_(entry_size),
     entry_count_(entry_count)
 {}

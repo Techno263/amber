@@ -1,5 +1,4 @@
 #include <amber/alloc_error.hpp>
-#include <amber/except.hpp>
 #include <amber/linear_allocator.hpp>
 #include <amber/util.hpp>
 #include <bit>
@@ -16,17 +15,20 @@ linear_allocator::linear_allocator(linear_allocator&& other) noexcept
     buffer_offset_(std::exchange(other.buffer_offset_, 0))
 {}
 
-std::expected<linear_allocator, alloc_error> create(std::size_t alignment, std::size_t size) noexcept
+std::expected<linear_allocator, alloc_error> linear_allocator::create(
+    std::size_t alignment, std::size_t size) noexcept
 {
     auto exp_buffer = aligned_alloc(alignment, size);
     if (!exp_buffer.has_value()) [[unlikely]] {
         return std::unexpected(exp_buffer.error());
     }
+    std::byte* buffer = reinterpret_cast<std::byte*>(exp_buffer.value());
     // Always return constructor for Return Value Optimization (RVO) using copy elision
-    return linear_allocator(exp_buffer.value(), size, 0);
+    return linear_allocator(buffer, size, 0);
 }
 
-std::expected<linear_allocator, alloc_error> create(std::size_t size) noexcept
+std::expected<linear_allocator, alloc_error> linear_allocator::create(
+    std::size_t size) noexcept
 {
     // Always directly return `create` for RVO
     return create(alignof(std::max_align_t), size);
@@ -72,7 +74,7 @@ std::expected<void*, alloc_error> linear_allocator::allocate(std::size_t alignme
     return reinterpret_cast<void*>(aligned_addr);
 }
 
-void* linear_allocator::allocate(std::size_t size) noexcept
+std::expected<void*, alloc_error> linear_allocator::allocate(std::size_t size) noexcept
 {
     return allocate(alignof(std::max_align_t), size);
 }
@@ -92,7 +94,7 @@ std::size_t linear_allocator::buffer_offset() const noexcept
     return buffer_offset_;
 }
 
-linear_allocator::linear_allocator(std::byte* buffer, std::size_t buffer_size, std::size_t buffer_offset)
+linear_allocator::linear_allocator(std::byte* buffer, std::size_t buffer_size, std::size_t buffer_offset) noexcept
     : buffer_(buffer),
     buffer_size_(buffer_size),
     buffer_offset_(buffer_offset)

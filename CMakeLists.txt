@@ -17,6 +17,8 @@ project(amber
     LANGUAGES CXX
 )
 
+add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+
 include(GNUInstallDirs)
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/Util.cmake")
 

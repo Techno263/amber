@@ -3,6 +3,7 @@
 #include <amber/alloc_error.hpp>
 #include <cstddef>
 #include <expected>
+#include <type_traits>
 
 namespace amber {
 
@@ -34,12 +35,14 @@ public:
 
     std::expected<void*, alloc_error> allocate(std::size_t size) noexcept;
 
-    template<typename T>
-    std::expected<T*, alloc_error> allocate() noexcept;
+    template<typename T, typename... Args>
+    requires std::is_nothrow_constructible_v<T, Args...>
+    std::expected<T*, alloc_error> allocate(Args&&... args) noexcept;
 
     void free(void* ptr) noexcept;
 
     template<typename T>
+    requires std::is_nothrow_destructible_v<T>
     void free(T* ptr) noexcept;
 
     std::size_t buffer_size() const noexcept;
@@ -56,12 +59,8 @@ private:
     std::byte* buffer_;
     std::size_t buffer_size_;
     std::size_t buffer_offset_;
-
-    friend auto allocate_helper(stack_allocator* a, std::size_t size) noexcept
-        -> struct allocate_result;
-
-    friend auto allocate_align_helper(stack_allocator* a, std::size_t alignment, std::size_t size) noexcept
-        -> struct allocate_align_result;
 };
 
-}
+} // namespace amber
+
+#include <amber/stack_allocator.inl>

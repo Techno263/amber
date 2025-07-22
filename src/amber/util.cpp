@@ -1,4 +1,3 @@
-#include <amber/except.hpp>
 #include <amber/util.hpp>
 #include <cstdlib>
 #include <cstring>
@@ -31,7 +30,7 @@ inline std::expected<void*, alloc_error> _aligned_alloc(std::size_t alignment, s
     }
     std::byte* shifted_ptr = malloc_ptr + alignof(std::max_align_t);
     std::uintptr_t shifted_addr = reinterpret_cast<std::uintptr_t>(shifted_ptr);
-    std::uintptr_t aligned_addr = align_forward_no_check(alignment, shifted_addr);
+    std::uintptr_t aligned_addr = align_forward(alignment, shifted_addr);
     std::byte* aligned_ptr = reinterpret_cast<std::byte*>(aligned_addr);
     aligned_ptr = std::assume_aligned<alignof(std::max_align_t)>(aligned_ptr);
     std::memcpy(aligned_ptr - sizeof(void*), &malloc_ptr, sizeof(void*));
@@ -51,7 +50,7 @@ inline void _aligned_free(void* ptr) noexcept
 
 } // unnamed namespace
 
-std::expected<void*, alloc_error> aligned_alloc(std::size_t alignment, std::size_t size)
+std::expected<void*, alloc_error> aligned_alloc(std::size_t alignment, std::size_t size) noexcept
 {
 #ifdef AMBER_USE_CPP_ALIGNED_ALLOC
     return std::aligned_alloc(alignment, size);

@@ -1,4 +1,3 @@
-#include <amber/except.hpp>
 #include <bit>
 
 namespace amber {
