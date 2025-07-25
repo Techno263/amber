@@ -18,7 +18,7 @@ public:
     static
     std::expected<pool_allocator, alloc_error> create(
         std::size_t buffer_alignment,
-        std::size_t entry_alienment,
+        std::size_t entry_alignment,
         std::size_t entry_size,
         std::size_t entry_count
     ) noexcept;

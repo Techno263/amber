@@ -1,3 +1,6 @@
+#include <memory>
+#include <utility>
+#include <new>
 
 namespace amber {
 
@@ -9,7 +12,7 @@ std::expected<T*, alloc_error> stack_allocator::allocate(Args&&... args) noexcep
     if (!exp_ptr.has_value()) [[unlikely]] {
         return std::unexpected(exp_ptr.error());
     }
-    T* std::asume_aligned<alignof(T)>(static_cast<T*>(exp_ptr.value()));
+    T* ptr = std::assume_aligned<alignof(T)>(static_cast<T*>(exp_ptr.value()));
     return std::launder(std::construct_at(ptr, std::forward<Args>(args)...));
 }
 
@@ -17,7 +20,7 @@ template<typename T>
 requires std::is_nothrow_destructible_v<T>
 void stack_allocator::free(T* ptr) noexcept
 {
-    std::destry_at(ptr);
+    std::destroy_at(ptr);
     free(static_cast<void*>(ptr));
 }
 
