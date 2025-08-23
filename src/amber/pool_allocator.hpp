@@ -1,11 +1,23 @@
 #pragma once
 
-#include <amber/alloc_error.hpp>
+#include <amber/concept.hpp>
 #include <cstddef>
 #include <expected>
+#include <string>
 #include <type_traits>
 
 namespace amber {
+
+namespace internal {
+
+struct pool_entry {
+public:
+    pool_entry(std::byte* next) noexcept;
+
+    std::byte* next;
+};
+
+} // namespace amber::internal
 
 class pool_allocator {
 public:
@@ -15,40 +27,22 @@ public:
 
     pool_allocator(pool_allocator&& other) noexcept;
 
-    static
-    std::expected<pool_allocator, alloc_error> create(
-        std::size_t buffer_alignment,
-        std::size_t entry_alignment,
-        std::size_t entry_size,
-        std::size_t entry_count
-    ) noexcept;
-
-    static
-    std::expected<pool_allocator, alloc_error> create(
-        std::size_t entry_alignment,
-        std::size_t entry_size,
-        std::size_t entry_count
-    ) noexcept;
-
-    static
-    std::expected<pool_allocator, alloc_error> create(
-        std::size_t entry_size, std::size_t entry_count) noexcept;
-
-    template<typename T>
-    static
-    std::expected<pool_allocator, alloc_error> create(std::size_t entry_count) noexcept;
-
     pool_allocator& operator=(const pool_allocator&) = delete;
 
     pool_allocator& operator=(pool_allocator&& other) noexcept;
 
     ~pool_allocator() noexcept;
 
-    std::expected<void*, alloc_error> allocate() noexcept;
+    template<Buffer B>
+    static
+    std::expected<pool_allocator, std::string> create(
+        B& buffer, std::size_t entry_size) noexcept;
+
+    std::expected<void*, std::string> allocate() noexcept;
 
     template<typename T, typename... Args>
     requires std::is_nothrow_constructible_v<T, Args...>
-    std::expected<T*, alloc_error> allocate(Args&&... args) noexcept;
+    std::expected<T*, std::string> allocate(Args&&... args) noexcept;
 
     void free(void* ptr) noexcept;
 
@@ -62,13 +56,18 @@ public:
 
     std::size_t entry_count() const noexcept;
 
+    std::size_t entry_allocate_count() const noexcept;
+
+    std::size_t entry_free_count() const noexcept;
+
 private:
     pool_allocator(
         std::byte* buffer,
         std::byte* free_head,
         std::size_t buffer_size,
         std::size_t entry_size,
-        std::size_t entry_count
+        std::size_t entry_count,
+        std::size_t entry_allocate_count
     ) noexcept;
 
     std::byte* buffer_;
@@ -76,6 +75,7 @@ private:
     std::size_t buffer_size_;
     std::size_t entry_size_;
     std::size_t entry_count_;
+    std::size_t entry_allocate_count_;
 };
 
 } // namespace amber

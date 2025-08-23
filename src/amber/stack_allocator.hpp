@@ -1,8 +1,9 @@
 #pragma once
 
-#include <amber/alloc_error.hpp>
-#include <cstddef>
+#include <amber/concept.hpp>
 #include <expected>
+#include <cstddef>
+#include <string>
 #include <type_traits>
 
 namespace amber {
@@ -15,29 +16,24 @@ public:
 
     stack_allocator(stack_allocator&& other) noexcept;
 
-    static
-    std::expected<stack_allocator, alloc_error> create(
-        std::size_t alignment,
-        std::size_t size
-    ) noexcept;
-
-    static
-    std::expected<stack_allocator, alloc_error> create(std::size_t size) noexcept;
-
     stack_allocator& operator=(const stack_allocator&) = delete;
 
     stack_allocator& operator=(stack_allocator&& other) noexcept;
 
     ~stack_allocator() noexcept;
 
-    std::expected<void*, alloc_error> allocate(
+    template<Buffer B>
+    static
+    std::expected<stack_allocator, std::string> create(B& buffer) noexcept;
+
+    std::expected<void*, std::string> allocate(
         std::size_t alignment, std::size_t size) noexcept;
 
-    std::expected<void*, alloc_error> allocate(std::size_t size) noexcept;
+    std::expected<void*, std::string> allocate(std::size_t size) noexcept;
 
     template<typename T, typename... Args>
     requires std::is_nothrow_constructible_v<T, Args...>
-    std::expected<T*, alloc_error> allocate(Args&&... args) noexcept;
+    std::expected<T*, std::string> allocate(Args&&... args) noexcept;
 
     void free(void* ptr) noexcept;
 
@@ -62,5 +58,3 @@ private:
 };
 
 } // namespace amber
-
-#include <amber/stack_allocator.inl>

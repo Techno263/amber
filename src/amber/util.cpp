@@ -3,13 +3,14 @@
 #include <cstring>
 #include <expected>
 #include <memory>
+#include <mica/mica.hpp>
 #include <new>
 
 namespace amber {
 
 namespace {
 
-inline std::expected<void*, alloc_error> _aligned_alloc(std::size_t alignment, std::size_t size) noexcept
+inline std::expected<void*, std::string> _aligned_alloc(std::size_t alignment, std::size_t size) noexcept
 {
     // Sanity checks
     static_assert((sizeof(void*) % alignof(void*)) == 0);
@@ -18,15 +19,23 @@ inline std::expected<void*, alloc_error> _aligned_alloc(std::size_t alignment, s
     static_assert(sizeof(void*) <= alignof(std::max_align_t));
     static_assert((alignof(std::max_align_t) % alignof(void*)) == 0);
 
-    if (!std::has_single_bit(alignment)) {
-        return std::unexpected(alloc_error::alignment_error);
+    if (!std::has_single_bit(alignment)) [[unlikely]] {
+        auto&& exp_msg = mica::format("invalid alignment: {}", alignment);
+        if (!exp_msg.has_value()) [[unlikely]] {
+            return std::unexpected("formatting failed while handling alignment error");
+        }
+        return std::unexpected(std::move(exp_msg).value());
     }
     if (alignment < alignof(std::max_align_t)) {
         alignment = alignof(std::max_align_t);
     }
     std::byte* malloc_ptr = static_cast<std::byte*>(std::malloc(alignment + size));
-    if (malloc_ptr == nullptr) {
-        return std::unexpected(alloc_error::bad_alloc_error);
+    if (malloc_ptr == nullptr) [[unlikely]] {
+        auto&& exp_msg = mica::format("malloc failed, alignment: {}, size: {}", alignment, size);
+        if (!exp_msg.has_value()) [[unlikely]] {
+            return std::unexpected("formatting failed while handling malloc error");
+        }
+        return std::unexpected(std::move(exp_msg).value());
     }
     std::byte* shifted_ptr = malloc_ptr + alignof(std::max_align_t);
     std::uintptr_t shifted_addr = reinterpret_cast<std::uintptr_t>(shifted_ptr);
@@ -50,7 +59,7 @@ inline void _aligned_free(void* ptr) noexcept
 
 } // unnamed namespace
 
-std::expected<void*, alloc_error> aligned_alloc(std::size_t alignment, std::size_t size) noexcept
+std::expected<void*, std::string> aligned_alloc(std::size_t alignment, std::size_t size) noexcept
 {
 #ifdef AMBER_USE_CPP_ALIGNED_ALLOC
     return std::aligned_alloc(alignment, size);

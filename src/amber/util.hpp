@@ -1,13 +1,13 @@
 #pragma once
 
-#include <amber/alloc_error.hpp>
 #include <concepts>
-#include <cstdint>
+#include <cstddef>
 #include <expected>
+#include <string>
 
 namespace amber {
 
-std::expected<void*, alloc_error> aligned_alloc(std::size_t alignment, std::size_t size) noexcept;
+std::expected<void*, std::string> aligned_alloc(std::size_t alignment, std::size_t size) noexcept;
 
 void aligned_free(void* ptr) noexcept;
 

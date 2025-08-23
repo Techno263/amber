@@ -1,8 +1,9 @@
 #pragma once
 
-#include <amber/alloc_error.hpp>
+#include <amber/concept.hpp>
 #include <cstddef>
 #include <expected>
+#include <string>
 #include <type_traits>
 
 namespace amber {
@@ -13,35 +14,26 @@ public:
 
     linear_allocator(const linear_allocator&) = delete;
 
-    linear_allocator(linear_allocator&&) noexcept;
-
-    static
-    std::expected<linear_allocator, alloc_error> create(
-        std::size_t alignment,
-        std::size_t size
-    ) noexcept;
-
-    static
-    std::expected<linear_allocator, alloc_error> create(
-        std::size_t size
-    ) noexcept;
+    linear_allocator(linear_allocator&& other) noexcept;
 
     linear_allocator& operator=(const linear_allocator&) = delete;
 
-    linear_allocator& operator=(linear_allocator&&) noexcept;
+    linear_allocator& operator=(linear_allocator&& other) noexcept;
 
     ~linear_allocator() noexcept;
 
-    std::expected<void*, alloc_error> allocate(
-        std::size_t alignment,
-        std::size_t size
-    ) noexcept;
+    template<Buffer B>
+    static
+    std::expected<linear_allocator, std::string> create(B& buffer) noexcept;
 
-    std::expected<void*, alloc_error> allocate(std::size_t size) noexcept;
+    std::expected<void*, std::string> allocate(
+        std::size_t alignment, std::size_t size) noexcept;
+
+    std::expected<void*, std::string> allocate(std::size_t size) noexcept;
 
     template<typename T, typename... Args>
     requires std::is_trivially_destructible_v<T>
-    std::expected<T*, alloc_error> allocate(Args&&... args) noexcept;
+    std::expected<T*, std::string> allocate(Args&&... args) noexcept;
 
     void reset() noexcept;
 

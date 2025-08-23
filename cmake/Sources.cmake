@@ -1,8 +1,15 @@
 set(AMBER_SOURCES
-    alloc_error.hpp
+    aligned_alloc_buffer.cpp
+    aligned_alloc_buffer.hpp
+    bitwise_enum.hpp
+    concept.hpp
     linear_allocator.cpp
     linear_allocator.hpp
     linear_allocator.inl
+    malloc_buffer.cpp
+    malloc_buffer.hpp
+    mmap_buffer.cpp
+    mmap_buffer.hpp
     pool_allocator.cpp
     pool_allocator.hpp
     pool_allocator.inl

@@ -7,6 +7,79 @@
 
 namespace amber_test {
 
+TEST_CASE("is_aligned")
+{
+    struct test_case {
+        struct {
+            std::size_t alignment;
+            std::size_t value;
+        } input;
+        std::size_t expect;
+    };
+    std::array test_cases{
+        test_case{
+            .input = {.alignment = 1, .value = 1},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 1, .value = 2},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 2, .value = 2},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 2, .value = 102},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 4, .value = 16},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 4, .value = 128},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 8, .value = 16},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 8, .value = 96},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 16, .value = 64},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 128, .value = 1024},
+            .expect = true
+        },
+        test_case{
+            .input = {.alignment = 2, .value = 3},
+            .expect = false
+        },
+        test_case{
+            .input = {.alignment = 16, .value = 24},
+            .expect = false
+        },
+        test_case{
+            .input = {.alignment = 16, .value = 33},
+            .expect = false
+        },
+        test_case{
+            .input = {.alignment = 8, .value = 14},
+            .expect = false
+        },
+    };
+    for (const test_case& tc : test_cases) {
+        std::size_t actual = amber::is_aligned(tc.input.alignment, tc.input.value);
+        REQUIRE(actual == tc.expect);
+    }
+}
+
 TEST_CASE("align_forward true")
 {
     struct test_case {
