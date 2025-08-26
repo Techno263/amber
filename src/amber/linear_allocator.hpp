@@ -3,6 +3,7 @@
 #include <amber/concept.hpp>
 #include <cstddef>
 #include <expected>
+#include <span>
 #include <string>
 #include <type_traits>
 
@@ -43,13 +44,11 @@ public:
 
 private:
     linear_allocator(
-        std::byte* buffer,
-        std::size_t buffer_size,
+        std::span<std::byte> buffer,
         std::size_t buffer_offset
     ) noexcept;
 
-    std::byte* buffer_;
-    std::size_t buffer_size_;
+    std::span<std::byte> buffer_;
     std::size_t buffer_offset_;
 };
 

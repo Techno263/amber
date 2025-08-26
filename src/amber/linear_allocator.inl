@@ -11,8 +11,8 @@ namespace amber {
 template<Buffer B>
 std::expected<linear_allocator, std::string> linear_allocator::create(B& buffer) noexcept
 {
-    std::byte* buffer_ptr = static_cast<std::byte*>(buffer.buffer());
-    std::uintptr_t buffer_addr = reinterpret_cast<std::uintptr_t>(buffer_ptr);
+    std::span<std::byte> buffer_span = buffer.buffer();
+    std::uintptr_t buffer_addr = reinterpret_cast<std::uintptr_t>(buffer_span.data());
     std::uintptr_t target_alignment = static_cast<std::uintptr_t>(alignof(std::max_align_t));
     if (!is_aligned(target_alignment, buffer_addr)) [[unlikely]] {
         auto&& exp_msg = mica::format(
@@ -24,7 +24,7 @@ std::expected<linear_allocator, std::string> linear_allocator::create(B& buffer)
         }
         return std::unexpected(std::move(exp_msg).value());
     }
-    return linear_allocator(buffer_ptr, buffer.size(), 0);
+    return linear_allocator(buffer_span, 0);
 }
 
 template<typename T, typename... Args>

@@ -33,7 +33,7 @@ malloc_buffer::~malloc_buffer() noexcept
 
 std::expected<malloc_buffer, std::string> malloc_buffer::create(std::size_t size) noexcept
 {
-    void* buffer = std::malloc(size);
+    std::byte* buffer = static_cast<std::byte*>(std::malloc(size));
     if (buffer == nullptr) [[unlikely]] {
         auto&& exp_msg = mica::format("malloc failed, size: {}", size);
         if (!exp_msg.has_value()) [[unlikely]] {
@@ -44,14 +44,14 @@ std::expected<malloc_buffer, std::string> malloc_buffer::create(std::size_t size
     return malloc_buffer(buffer, size);
 }
 
-void* malloc_buffer::buffer() noexcept
+std::span<std::byte> malloc_buffer::buffer() noexcept
 {
-    return buffer_;
+    return std::span(buffer_, size_);
 }
 
-const void* malloc_buffer::buffer() const noexcept
+const std::span<std::byte> malloc_buffer::buffer() const noexcept
 {
-    return buffer_;
+    return std::span(buffer_, size_);
 }
 
 std::size_t malloc_buffer::size() const noexcept
@@ -59,7 +59,7 @@ std::size_t malloc_buffer::size() const noexcept
     return size_;
 }
 
-malloc_buffer::malloc_buffer(void* buffer, std::size_t size) noexcept
+malloc_buffer::malloc_buffer(std::byte* buffer, std::size_t size) noexcept
     : buffer_(buffer),
     size_(size)
 {}

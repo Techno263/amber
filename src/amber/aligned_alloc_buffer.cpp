@@ -40,7 +40,7 @@ std::expected<aligned_buffer, std::string> aligned_buffer::create(
     std::size_t size
 ) noexcept
 {
-    void* buffer = std::aligned_alloc(alignment, size);
+    std::byte* buffer = static_cast<std::byte*>(std::aligned_alloc(alignment, size));
     if (buffer == nullptr) [[unlikely]] {
         auto&& exp_msg = mica::format("aligned_alloc failed, alignment: {}, size: {}", alignment, size);
         if (!exp_msg.has_value()) [[unlikely]] {
@@ -51,14 +51,14 @@ std::expected<aligned_buffer, std::string> aligned_buffer::create(
     return aligned_buffer(buffer, alignment, size);
 }
 
-void* aligned_buffer::buffer() noexcept
+std::span<std::byte> aligned_buffer::buffer() noexcept
 {
-    return buffer_;
+    return std::span(buffer_, size_);
 }
 
-const void* aligned_buffer::buffer() const noexcept
+const std::span<std::byte> aligned_buffer::buffer() const noexcept
 {
-    return buffer_;
+    return std::span(buffer_, size_);
 }
 
 std::size_t aligned_buffer::alignment() const noexcept
@@ -71,7 +71,7 @@ std::size_t aligned_buffer::size() const noexcept
     return size_;
 }
 
-aligned_buffer::aligned_buffer(void* buffer, std::size_t alignment, std::size_t size) noexcept
+aligned_buffer::aligned_buffer(std::byte* buffer, std::size_t alignment, std::size_t size) noexcept
     : buffer_(buffer),
     alignment_(alignment),
     size_(size)

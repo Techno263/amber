@@ -8,16 +8,14 @@
 namespace amber {
 
 linear_allocator::linear_allocator(linear_allocator&& other) noexcept
-    : buffer_(std::exchange(other.buffer_, nullptr)),
-    buffer_size_(std::exchange(other.buffer_size_, 0)),
-    buffer_offset_(std::exchange(other.buffer_size_, 0))
+    : buffer_(std::exchange(other.buffer_, std::span<std::byte>())),
+    buffer_offset_(std::exchange(other.buffer_offset_, 0))
 {}
 
 linear_allocator& linear_allocator::operator=(linear_allocator&& other) noexcept
 {
     if (this != &other) {
-        buffer_ = std::exchange(other.buffer_, nullptr);
-        buffer_size_ = std::exchange(other.buffer_size_, 0);
+        buffer_ = std::exchange(other.buffer_, std::span<std::byte>());
         buffer_offset_ = std::exchange(other.buffer_offset_, 0);
     }
     return *this;
@@ -25,8 +23,7 @@ linear_allocator& linear_allocator::operator=(linear_allocator&& other) noexcept
 
 linear_allocator::~linear_allocator() noexcept
 {
-    buffer_ = nullptr;
-    buffer_size_ = 0;
+    buffer_ = std::span<std::byte>();
     buffer_offset_ = 0;
 }
 
@@ -39,11 +36,11 @@ std::expected<void*, std::string> linear_allocator::allocate(std::size_t alignme
         }
         return std::unexpected(std::move(exp_msg).value());
     }
-    std::byte* offset_ptr = buffer_ + buffer_offset_;
+    std::byte* offset_ptr = buffer_.data() + buffer_offset_;
     std::uintptr_t offset_addr = reinterpret_cast<std::uintptr_t>(offset_ptr);
     std::uintptr_t aligned_addr = align_forward(static_cast<std::uintptr_t>(alignment), offset_addr);
     std::uintptr_t aligned_padding = aligned_addr - offset_addr;
-    if (buffer_offset_ + aligned_padding + size > buffer_size_) [[unlikely]] {
+    if (buffer_offset_ + aligned_padding + size > buffer_.size()) [[unlikely]] {
         return std::unexpected("out of capacity");
     }
     buffer_offset_ += aligned_padding + size;
@@ -62,7 +59,7 @@ void linear_allocator::reset() noexcept
 
 std::size_t linear_allocator::buffer_size() const noexcept
 {
-    return buffer_size_;
+    return buffer_.size();
 }
 
 std::size_t linear_allocator::buffer_offset() const noexcept
@@ -71,9 +68,8 @@ std::size_t linear_allocator::buffer_offset() const noexcept
 }
 
 linear_allocator::linear_allocator(
-    std::byte* buffer, std::size_t buffer_size, std::size_t buffer_offset) noexcept
+    std::span<std::byte> buffer, std::size_t buffer_offset) noexcept
     : buffer_(buffer),
-    buffer_size_(buffer_size),
     buffer_offset_(buffer_offset)
 {}
 

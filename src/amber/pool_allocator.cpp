@@ -15,9 +15,8 @@ pool_entry::pool_entry(std::byte* next) noexcept
 } // namespace amber::internal
 
 pool_allocator::pool_allocator(pool_allocator&& other) noexcept
-    : buffer_(std::exchange(other.buffer_, nullptr)),
+    : buffer_(std::exchange(other.buffer_, std::span<std::byte>())),
     free_head_(std::exchange(other.free_head_, nullptr)),
-    buffer_size_(std::exchange(other.buffer_size_, 0)),
     entry_size_(std::exchange(other.entry_size_, 0)),
     entry_count_(std::exchange(other.entry_count_, 0)),
     entry_allocate_count_(std::exchange(other.entry_allocate_count_, 0))
@@ -25,9 +24,8 @@ pool_allocator::pool_allocator(pool_allocator&& other) noexcept
 
 pool_allocator::~pool_allocator() noexcept
 {
-    buffer_ = nullptr;
+    buffer_ = std::span<std::byte>();
     free_head_ = nullptr;
-    buffer_size_ = 0;
     entry_size_ = 0;
     entry_count_ = 0;
     entry_allocate_count_ = 0;
@@ -36,9 +34,8 @@ pool_allocator::~pool_allocator() noexcept
 pool_allocator& pool_allocator::operator=(pool_allocator&& other) noexcept
 {
     if (this != &other) {
-        buffer_ = std::exchange(other.buffer_, nullptr);
+        buffer_ = std::exchange(other.buffer_, std::span<std::byte>());
         free_head_ = std::exchange(other.free_head_, nullptr);
-        buffer_size_ = std::exchange(other.buffer_size_, 0);
         entry_size_ = std::exchange(other.entry_size_, 0);
         entry_count_ = std::exchange(other.entry_count_, 0);
         entry_allocate_count_ = std::exchange(other.entry_allocate_count_, 0);
@@ -74,7 +71,7 @@ void pool_allocator::free(void* ptr) noexcept
 
 std::size_t pool_allocator::buffer_size() const noexcept
 {
-    return buffer_size_;
+    return buffer_.size();
 }
 
 std::size_t pool_allocator::entry_size() const noexcept
@@ -98,16 +95,14 @@ std::size_t pool_allocator::entry_free_count() const noexcept
 }
 
 pool_allocator::pool_allocator(
-    std::byte* buffer,
+    std::span<std::byte> buffer,
     std::byte* free_head,
-    std::size_t buffer_size,
     std::size_t entry_size,
     std::size_t entry_count,
     std::size_t entry_allocate_count
 ) noexcept
     : buffer_(buffer),
     free_head_(free_head),
-    buffer_size_(buffer_size),
     entry_size_(entry_size),
     entry_count_(entry_count),
     entry_allocate_count_(entry_allocate_count)

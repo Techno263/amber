@@ -7,6 +7,7 @@ extern "C" {
 #include <amber/concept.hpp>
 #include <cstddef>
 #include <expected>
+#include <span>
 #include <string>
 
 namespace amber {
@@ -44,16 +45,16 @@ public:
     static
     std::expected<mmap_buffer, std::string> create(std::size_t size) noexcept;
 
-    void* buffer() noexcept;
+    std::span<std::byte> buffer() noexcept;
 
-    const void* buffer() const noexcept;
+    const std::span<std::byte> buffer() const noexcept;
 
     std::size_t size() const noexcept;
 
 private:
-    mmap_buffer(void* buffer, std::size_t size) noexcept;
+    mmap_buffer(std::byte* buffer, std::size_t size) noexcept;
 
-    void* buffer_;
+    std::byte* buffer_;
     std::size_t size_;
 };
 

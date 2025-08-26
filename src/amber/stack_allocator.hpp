@@ -1,8 +1,9 @@
 #pragma once
 
 #include <amber/concept.hpp>
-#include <expected>
 #include <cstddef>
+#include <expected>
+#include <span>
 #include <string>
 #include <type_traits>
 
@@ -47,14 +48,14 @@ public:
 
 private:
     stack_allocator(
-        std::byte* buffer,
-        std::size_t buffer_size,
+        std::span<std::byte> buffer,
         std::size_t buffer_offset
     ) noexcept;
 
-    std::byte* buffer_;
-    std::size_t buffer_size_;
+    std::span<std::byte> buffer_;
     std::size_t buffer_offset_;
 };
 
 } // namespace amber
+
+#include <amber/stack_allocator.inl>

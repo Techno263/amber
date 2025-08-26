@@ -2,6 +2,7 @@
 
 #include <concepts>
 #include <cstddef>
+#include <span>
 #include <type_traits>
 
 namespace amber {
@@ -14,8 +15,8 @@ concept Buffer =
     && std::is_nothrow_move_assignable_v<T>
     && requires(T t, const T tc)
 {
-    { t.buffer() } noexcept -> std::same_as<void*>;
-    { tc.buffer() } noexcept -> std::same_as<const void*>;
+    { t.buffer() } noexcept -> std::same_as<std::span<std::byte>>;
+    { tc.buffer() } noexcept -> std::same_as<const std::span<std::byte>>;
     { tc.size() } noexcept -> std::same_as<std::size_t>;
 };
 

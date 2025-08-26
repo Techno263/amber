@@ -47,8 +47,8 @@ std::expected<mmap_buffer, std::string> mmap_buffer::create(
 {
     mmap_prot prot = mmap_prot::read | mmap_prot::write;
     flags |= mmap_flag::private_map | mmap_flag::populate;
-    void* buffer = mmap(
-        nullptr, size, static_cast<int>(prot), static_cast<int>(flags), -1, 0);
+    std::byte* buffer = static_cast<std::byte*>(mmap(
+        nullptr, size, static_cast<int>(prot), static_cast<int>(flags), -1, 0));
     if (buffer == MAP_FAILED) [[unlikely]] {
         auto flag_int = std::underlying_type_t<mmap_flag>(flags);
         auto&& exp_msg = mica::format(
@@ -69,19 +69,24 @@ std::expected<mmap_buffer, std::string> mmap_buffer::create(std::size_t size) no
     return mmap_buffer::create(size, flags);
 }
 
-void* mmap_buffer::buffer() noexcept
+std::span<std::byte> mmap_buffer::buffer() noexcept
 {
-    return buffer_;
+    return std::span(buffer_, size_);
 }
 
-const void* mmap_buffer::buffer() const noexcept
+const std::span<std::byte> mmap_buffer::buffer() const noexcept
 {
-    return buffer_;
+    return std::span(buffer_, size_);
 }
 
 std::size_t mmap_buffer::size() const noexcept
 {
     return size_;
 }
+
+mmap_buffer::mmap_buffer(std::byte* buffer, std::size_t size) noexcept
+    : buffer_(buffer),
+    size_(size)
+{}
 
 } // namespace amber

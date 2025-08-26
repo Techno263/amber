@@ -3,6 +3,7 @@
 #include <amber/concept.hpp>
 #include <cstddef>
 #include <expected>
+#include <span>
 #include <string>
 #include <type_traits>
 
@@ -62,17 +63,15 @@ public:
 
 private:
     pool_allocator(
-        std::byte* buffer,
+        std::span<std::byte> buffer,
         std::byte* free_head,
-        std::size_t buffer_size,
         std::size_t entry_size,
         std::size_t entry_count,
         std::size_t entry_allocate_count
     ) noexcept;
 
-    std::byte* buffer_;
+    std::span<std::byte> buffer_;
     std::byte* free_head_;
-    std::size_t buffer_size_;
     std::size_t entry_size_;
     std::size_t entry_count_;
     std::size_t entry_allocate_count_;
