@@ -46,7 +46,7 @@ std::expected<mmap_buffer, std::string> mmap_buffer::create(
     std::size_t size, mmap_flag flags) noexcept
 {
     mmap_prot prot = mmap_prot::read | mmap_prot::write;
-    flags |= mmap_flag::private_map | mmap_flag::populate;
+    flags |= mmap_flag::private_map | mmap_flag::populate | mmap_flag::anonymous;
     std::byte* buffer = static_cast<std::byte*>(mmap(
         nullptr, size, static_cast<int>(prot), static_cast<int>(flags), -1, 0));
     if (buffer == MAP_FAILED) [[unlikely]] {
@@ -65,7 +65,7 @@ std::expected<mmap_buffer, std::string> mmap_buffer::create(
 
 std::expected<mmap_buffer, std::string> mmap_buffer::create(std::size_t size) noexcept
 {
-    mmap_flag flags = mmap_flag::private_map | mmap_flag::populate;
+    mmap_flag flags = mmap_flag::private_map | mmap_flag::populate | mmap_flag::anonymous;
     return mmap_buffer::create(size, flags);
 }
 

@@ -1,4 +1,4 @@
-#include <amber/aligned_alloc_buffer.hpp>
+#include <amber/aligned_buffer.hpp>
 #include <cstdlib>
 #include <mica/mica.hpp>
 #include <utility>

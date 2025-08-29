@@ -1,6 +1,6 @@
 set(AMBER_SOURCES
-    aligned_alloc_buffer.cpp
-    aligned_alloc_buffer.hpp
+    aligned_buffer.cpp
+    aligned_buffer.hpp
     bitwise_enum.hpp
     concept.hpp
     linear_allocator.cpp
