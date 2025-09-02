@@ -13,6 +13,7 @@ extern "C" {
 namespace amber {
 
 enum class mmap_flag : int {
+    none = 0,
     private_map = MAP_PRIVATE,
     anonymous = MAP_ANONYMOUS,
     huge_table = MAP_HUGETLB,

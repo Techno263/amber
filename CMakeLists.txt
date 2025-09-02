@@ -4,7 +4,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 set(AMBER_VERSION "0.0.1")
 
-option(AMBER_TESTS "Build test executable")
+option(AMBER_TESTS "Build test executable" OFF)
 
 string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)$" _ "${AMBER_VERSION}")
 set(AMBER_VERSION_MAJOR "${CMAKE_MATCH_1}")
@@ -24,18 +24,24 @@ include("cmake/Sources.cmake")
 
 find_package(mica REQUIRED)
 
-add_library("${PROJECT_NAME}" ${AMBER_SOURCES})
+add_library("${PROJECT_NAME}" ${AMBER_SOURCES} ${AMBER_HEADERS})
+target_sources("${PROJECT_NAME}"
+    PUBLIC
+        FILE_SET HEADERS
+        BASE_DIRS "src"
+        FILES ${AMBER_HEADERS}
+)
 target_compile_features("${PROJECT_NAME}"
-    INTERFACE cxx_std_23
+    PUBLIC cxx_std_23
 )
 target_compile_options("${PROJECT_NAME}"
-    INTERFACE -Wall -Wextra -Wpedantic -Werror
+    PRIVATE -Wall -Wextra -Wpedantic -Werror
 )
 target_include_directories("${PROJECT_NAME}"
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 target_link_libraries("${PROJECT_NAME}"
-    PRIVATE
+    PUBLIC
         mica::mica
 )
 
@@ -45,4 +51,7 @@ if(AMBER_TESTS)
     add_subdirectory("test")
 endif()
 
-install(TARGETS "${PROJECT_NAME}")
+install(
+    TARGETS "${PROJECT_NAME}"
+    FILE_SET HEADERS
+)
